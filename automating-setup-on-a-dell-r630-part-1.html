@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+        <meta charset="utf-8" />
+        <title>Automating Setup on a Dell R630, Part 1</title>
+        <link rel="stylesheet" href="/theme/css/main.css" />
+
+        <!--[if IE]>
+            <script src="https://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+</head>
+
+<body id="index" class="home">
+        <header id="banner" class="body">
+                <h1><a href="/">garettmd </a></h1>
+                <nav><ul>
+                    <li><a href="/category/automation.html">automation</a></li>
+                    <li class="active"><a href="/category/misc.html">misc</a></li>
+                </ul></nav>
+        </header><!-- /#banner -->
+<section id="content" class="body">
+  <article>
+    <header>
+      <h1 class="entry-title">
+        <a href="/automating-setup-on-a-dell-r630-part-1.html" rel="bookmark"
+           title="Permalink to Automating Setup on a Dell R630, Part 1">Automating Setup on a Dell R630, Part 1</a></h1>
+    </header>
+
+    <div class="entry-content">
+<footer class="post-info">
+        <abbr class="published" title="2016-12-01T00:00:00-05:00">
+                Published: Thu 01 December 2016
+        </abbr>
+
+        <address class="vcard author">
+                By                         <a class="url fn" href="/author/garett.html">Garett</a>
+        </address>
+<p>In <a href="/category/misc.html">misc</a>.</p>
+
+</footer><!-- /.post-info -->      <p>Recently I was setting up a new server rack with several Dell R630s. The out-of-band management tool for Dell devices is called iDRAC. It works fine for most cases, I suppose. You can configure iDRAC and other BIOS settings over ssh allowing you to script out your work which is <em>much</em> faster than doing things in the GUI. The only problem is all of the R630s were set up with static IPs of 192.168.0.120 by default, which makes connecting to 12 of them over ssh problematic. An easy way to get around this problem is by setting up a DHCP server that will assign addresses to each server, thereby letting you access each one independently.</p>
+<p>But wait, you ask, you still need to access the GUI to change each server to use DHCP. And if you're going to do that, why not just assign the address you want while you're in the GUI. The answer is that getting into the GUI requires you to reboot the server which in turn means that you have to wait for the plodding iDRAC software which seems to be built on Windows (<strong>!@?$@#$</strong>) to come up before you can make any changes. I'm wanting fast here, so I'm still going to script it out. The easiest way I've found to do this is to connect your computer to an R630, set an IP of 192.168.0.121 (or really anything on that same /24 subnet should work, but why get too crazy), and run a quick <code>racadm</code> command to setup DHCP.</p>
+<h3>Physical Connection</h3>
+<p>First, connect your computer to an R630 via ethernet. Then set your IP address on that interface to 192.168.0.121 (any IP address in that /24 subnet should work; actually any address at all might...). Next, confirm you can connect to the R630 by pinging 192.168.0.120. If that works, move on to ssh.</p>
+<h3>SSH</h3>
+<p>Because we're going to be connecting to multiple servers with the same address, we want to ignore ssh-key checking and keep ssh from adding the server and its public key to our known hosts file. To do this, use the following ssh options:</p>
+<div class="highlight"><pre><span></span>ssh -o <span class="nv">StrictHostKeyChecking</span><span class="o">=</span>no -o <span class="nv">UserKnownHostsFile</span><span class="o">=</span>dev/null -o <span class="nv">LogLevel</span><span class="o">=</span>QUIET
+</pre></div>
+
+
+<p>This will let it just connect to the server, security be damned! If you have any man-in-the-middle attacks between you and a server you're directly connected to and sitting in front of, ssh key checking is the least of your worries.</p>
+<p>To keep from having to enter a password for each connection made to iDRAC, use <code>sshpass</code>. For a Mac, install it using Homebrew. If you're not using Homebrew, start using it. <code>sshpass</code> is considered by many to be bad from a security perspective, so it's not included with Homebrew by default. But you can install it from Sourceforge (yes, I know, I know. But it is legit) using the the command:</p>
+<div class="highlight"><pre><span></span>brew install https://raw.githubusercontent.com/kadwanev/bigboybrew/master/Library/Formula/sshpass.rb
+</pre></div>
+
+
+<p>After doing that, just add <code>sshpass -p &lt;your password&gt;</code> in front of the ssh command, and you will be that much closer to automation heaven.</p>
+<div class="highlight"><pre><span></span>sshpass -p password ssh -o <span class="nv">StrictHostKeyChecking</span><span class="o">=</span>no -o <span class="nv">UserKnownHostsFile</span><span class="o">=</span>dev/null -o <span class="nv">LogLevel</span><span class="o">=</span>QUIET
+</pre></div>
+
+
+<p>Now we're cooking with gas!</p>
+<h3>Scripts</h3>
+<p>We're going to attempt to make our scripts modular, that way base ssh and racadm logic that isn't going to change will stay in one shell script, and the actual racadm commands that will vary depending on what operation we want will stay in their own scripts. So our directory structure will look something like this:</p>
+<div class="highlight"><pre><span></span>idrac.sh
+idrac_config.sh
+idrac_config_bigswitch.sh
+idrac_config_nostorage.sh
+idrac_enable_pxe.sh
+idrac_get_ips.sh
+</pre></div>
+
+
+<p>That top <code>idrac.sh</code> file is the main one, which all other scripts will call. And it looks like this</p>
+<div class="highlight"><pre><span></span><span class="ch">#!/bin/bash</span>
+
+<span class="nv">USER</span><span class="o">=</span>root
+<span class="nv">pass</span><span class="o">=</span><span class="nv">$1</span>
+<span class="nv">server</span><span class="o">=</span><span class="nv">$2</span>
+<span class="nb">shift</span>
+<span class="nb">shift</span>
+<span class="nv">cmd</span><span class="o">=</span><span class="nv">$*</span>
+
+<span class="nb">echo</span> <span class="s2">&quot;</span><span class="nv">$cmd</span><span class="s2">&quot;</span>
+sshpass -p <span class="s2">&quot;</span><span class="si">${</span><span class="nv">pass</span><span class="si">}</span><span class="s2">&quot;</span> ssh -o <span class="nv">StrictHostKeyChecking</span><span class="o">=</span>no -o <span class="nv">UserKnownHostsFile</span><span class="o">=</span>dev/null -o <span class="nv">LogLevel</span><span class="o">=</span>QUIET <span class="si">${</span><span class="nv">USER</span><span class="si">}</span>@<span class="s2">&quot;</span><span class="si">${</span><span class="nv">server</span><span class="si">}</span><span class="s2">&quot;</span> racadm <span class="s2">&quot;</span><span class="si">${</span><span class="nv">cmd</span><span class="si">}</span><span class="s2">&quot;</span>
+</pre></div>
+
+
+<p>You can obviously modify the variable values to store or pass in values to your liking. In my example, I'm always using the root user, and rather than storing the password in a file, I'll pass it in at runtime. This means that our other scripts will only need to call this script and supply the iDRAC password, which server to run this on (its IP address) and the actual racadm command.</p>
+<p>Moving on, we can now create our actual iDRAC scripts. Here's an example of one of my base idrac configuration scripts</p>
+<div class="highlight"><pre><span></span><span class="ch">#!/bin/bash</span>
+
+<span class="k">if</span> <span class="o">[</span> -z <span class="s2">&quot;</span><span class="nv">$1</span><span class="s2">&quot;</span> <span class="o">]</span>
+<span class="k">then</span>
+    <span class="nb">echo</span> <span class="s2">&quot;Please specify the name of the log file and servers file&quot;</span>
+    <span class="nb">exit</span> <span class="m">1</span>
+<span class="k">elif</span> <span class="o">[</span> -f <span class="s2">&quot;</span><span class="nv">$1</span><span class="s2">&quot;</span>_<span class="k">$(</span>basename <span class="s2">&quot;</span><span class="nv">$0</span><span class="s2">&quot;</span> .sh<span class="k">)</span>.log <span class="o">]</span>
+<span class="k">then</span>
+    <span class="nb">echo</span> <span class="s2">&quot;Filename already exists. Please choose a different one.&quot;</span>
+    <span class="nb">exit</span> <span class="m">1</span>
+<span class="k">else</span>
+    <span class="nv">site</span><span class="o">=</span><span class="nv">$1</span>
+<span class="k">fi</span>
+
+<span class="k">if</span> <span class="o">[</span> -z <span class="s2">&quot;</span><span class="nv">$2</span><span class="s2">&quot;</span> <span class="o">]</span>
+<span class="k">then</span>
+    <span class="nb">echo</span> <span class="s2">&quot;Please specify the password used to login to iDRAC&quot;</span>
+    <span class="nb">exit</span> <span class="m">1</span>
+<span class="k">else</span>
+    <span class="nv">pass</span><span class="o">=</span><span class="nv">$2</span>
+<span class="k">fi</span>
+
+<span class="nv">RACADM</span><span class="o">=</span><span class="s2">&quot;./idrac.sh&quot;</span>
+<span class="nv">LOGFILE</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$1</span><span class="s2">&quot;</span>_<span class="k">$(</span>basename <span class="s2">&quot;</span><span class="nv">$0</span><span class="s2">&quot;</span><span class="k">)</span>.log
+
+
+<span class="k">for</span> server in <span class="k">$(</span>cat <span class="s2">&quot;</span><span class="nv">$site</span><span class="s2">&quot;</span>.txt<span class="k">)</span>
+<span class="k">do</span>
+    <span class="nb">echo</span> <span class="s2">&quot;Starting iDRAC config for </span><span class="si">${</span><span class="nv">server</span><span class="si">}</span><span class="s2">&quot;</span> &gt;&gt; <span class="s2">&quot;</span><span class="nv">$LOGFILE</span><span class="s2">&quot;</span>
+    <span class="c1"># disable default password warning</span>
+    <span class="nv">$RACADM</span> <span class="s2">&quot;</span><span class="nv">$pass</span><span class="s2">&quot;</span> <span class="s2">&quot;</span><span class="nv">$server</span><span class="s2">&quot;</span> <span class="s2">&quot;set idrac.tuning.DefaultCredentialWarning 0&quot;</span> &gt;&gt; <span class="s2">&quot;</span><span class="nv">$LOGFILE</span><span class="s2">&quot;</span>
+    <span class="c1"># get idrac, BIOS and lifecycle controller version</span>
+    <span class="nv">$RACADM</span> <span class="s2">&quot;</span><span class="nv">$pass</span><span class="s2">&quot;</span> <span class="s2">&quot;</span><span class="nv">$server</span><span class="s2">&quot;</span> <span class="s2">&quot;getversion&quot;</span> &gt;&gt; <span class="s2">&quot;</span><span class="nv">$LOGFILE</span><span class="s2">&quot;</span>
+    <span class="c1"># get service tag</span>
+    <span class="nv">$RACADM</span> <span class="s2">&quot;</span><span class="nv">$pass</span><span class="s2">&quot;</span> <span class="s2">&quot;</span><span class="nv">$server</span><span class="s2">&quot;</span> <span class="s2">&quot;getsvctag&quot;</span> &gt;&gt; <span class="s2">&quot;</span><span class="nv">$LOGFILE</span><span class="s2">&quot;</span>
+    <span class="c1"># get mac address of idrac port</span>
+    <span class="nv">$RACADM</span> <span class="s2">&quot;</span><span class="nv">$pass</span><span class="s2">&quot;</span> <span class="s2">&quot;</span><span class="nv">$server</span><span class="s2">&quot;</span> <span class="s2">&quot;get iDRAC.NIC.MACAddress&quot;</span> &gt;&gt; <span class="s2">&quot;</span><span class="nv">$LOGFILE</span><span class="s2">&quot;</span>
+    <span class="c1"># create virtual drive for OS install</span>
+    <span class="nv">$RACADM</span> <span class="s2">&quot;</span><span class="nv">$pass</span><span class="s2">&quot;</span> <span class="s2">&quot;</span><span class="nv">$server</span><span class="s2">&quot;</span> <span class="s2">&quot;storage createvd:RAID.Integrated.1-1 -rl r1 -pdkey:Disk.Bay.0:Enclosure.Internal.0-1:RAID.Integrated.1-1,Disk.Bay.1:Enclosure.Internal.0-1:RAID.Integrated.1-1 -name LINUX_OS&quot;</span> &gt;&gt; <span class="s2">&quot;</span><span class="nv">$LOGFILE</span><span class="s2">&quot;</span>
+    <span class="nv">$RACADM</span> <span class="s2">&quot;</span><span class="nv">$pass</span><span class="s2">&quot;</span> <span class="s2">&quot;</span><span class="nv">$server</span><span class="s2">&quot;</span> <span class="s2">&quot;storage createvd:RAID.Integrated.1-1 -rl r1 -pdkey:Disk.Bay.2:Enclosure.Internal.0-1:RAID.Integrated.1-1,Disk.Bay.3:Enclosure.Internal.0-1:RAID.Integrated.1-1 -name IMAGES&quot;</span> &gt;&gt; <span class="s2">&quot;</span><span class="nv">$LOGFILE</span><span class="s2">&quot;</span>
+    <span class="c1"># actually create it here</span>
+    <span class="nv">$RACADM</span> <span class="s2">&quot;</span><span class="nv">$pass</span><span class="s2">&quot;</span> <span class="s2">&quot;</span><span class="nv">$server</span><span class="s2">&quot;</span> <span class="s2">&quot;jobqueue create RAID.Integrated.1-1 -s TIME_NOW --realtime&quot;</span> &gt;&gt; <span class="s2">&quot;</span><span class="nv">$LOGFILE</span><span class="s2">&quot;</span>
+    <span class="c1"># enable ipv6</span>
+    <span class="nv">$RACADM</span> <span class="s2">&quot;</span><span class="nv">$pass</span><span class="s2">&quot;</span> <span class="s2">&quot;</span><span class="nv">$server</span><span class="s2">&quot;</span> <span class="s2">&quot;set iDRAC.IPv6.Enable 1&quot;</span> &gt;&gt; <span class="s2">&quot;</span><span class="nv">$LOGFILE</span><span class="s2">&quot;</span>
+    <span class="c1"># set idrac port to LOM 3</span>
+    <span class="nv">$RACADM</span> <span class="s2">&quot;</span><span class="nv">$pass</span><span class="s2">&quot;</span> <span class="s2">&quot;</span><span class="nv">$server</span><span class="s2">&quot;</span> <span class="s2">&quot;set iDRAC.NIC.Selection 4&quot;</span> &gt;&gt; <span class="s2">&quot;</span><span class="nv">$LOGFILE</span><span class="s2">&quot;</span>
+    <span class="c1"># disable hot spare for PSUs</span>
+    <span class="nv">$RACADM</span> <span class="s2">&quot;</span><span class="nv">$pass</span><span class="s2">&quot;</span> <span class="s2">&quot;</span><span class="nv">$server</span><span class="s2">&quot;</span> <span class="s2">&quot;set System.Power.Hotspare.Enable 0&quot;</span> &gt;&gt; <span class="s2">&quot;</span><span class="nv">$LOGFILE</span><span class="s2">&quot;</span>
+    <span class="c1"># set redundancy policy to something</span>
+    <span class="nv">$RACADM</span> <span class="s2">&quot;</span><span class="nv">$pass</span><span class="s2">&quot;</span> <span class="s2">&quot;</span><span class="nv">$server</span><span class="s2">&quot;</span> <span class="s2">&quot;set System.Power.RedundancyPolicy 1&quot;</span> &gt;&gt; <span class="s2">&quot;</span><span class="nv">$LOGFILE</span><span class="s2">&quot;</span>
+    <span class="nb">echo</span> <span class="s2">&quot; &quot;</span> &gt;&gt; <span class="s2">&quot;</span><span class="nv">$LOGFILE</span><span class="s2">&quot;</span>
+<span class="k">done</span>
+</pre></div>
+    </div><!-- /.entry-content -->
+
+  </article>
+</section>
+        <section id="extras" class="body">
+                <div class="blogroll">
+                        <h2>links</h2>
+                        <ul>
+                            <li><a href="http://getpelican.com/">Pelican</a></li>
+                            <li><a href="http://python.org/">Python.org</a></li>
+                            <li><a href="http://jinja.pocoo.org/">Jinja2</a></li>
+                            <li><a href="#">You can modify those links in your config file</a></li>
+                        </ul>
+                </div><!-- /.blogroll -->
+                <div class="social">
+                        <h2>social</h2>
+                        <ul>
+
+                            <li><a href="#">You can add links in your config file</a></li>
+                            <li><a href="#">Another social link</a></li>
+                        </ul>
+                </div><!-- /.social -->
+        </section><!-- /#extras -->
+
+        <footer id="contentinfo" class="body">
+                <address id="about" class="vcard body">
+                Proudly powered by <a href="http://getpelican.com/">Pelican</a>, which takes great advantage of <a href="http://python.org">Python</a>.
+                </address><!-- /#about -->
+
+                <p>The theme is by <a href="http://coding.smashingmagazine.com/2009/08/04/designing-a-html-5-layout-from-scratch/">Smashing Magazine</a>, thanks!</p>
+        </footer><!-- /#contentinfo -->
+
+</body>
+</html>

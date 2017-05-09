@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+        <meta charset="utf-8" />
+        <title>Upgrading All Your Pip Packages</title>
+        <link rel="stylesheet" href="/theme/css/main.css" />
+
+        <!--[if IE]>
+            <script src="https://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+</head>
+
+<body id="index" class="home">
+        <header id="banner" class="body">
+                <h1><a href="/">garettmd </a></h1>
+                <nav><ul>
+                    <li><a href="/category/automation.html">automation</a></li>
+                    <li class="active"><a href="/category/misc.html">misc</a></li>
+                </ul></nav>
+        </header><!-- /#banner -->
+<section id="content" class="body">
+  <article>
+    <header>
+      <h1 class="entry-title">
+        <a href="/upgrading-all-your-pip-packages.html" rel="bookmark"
+           title="Permalink to Upgrading All Your Pip Packages">Upgrading All Your Pip Packages</a></h1>
+    </header>
+
+    <div class="entry-content">
+<footer class="post-info">
+        <abbr class="published" title="2016-08-19T00:00:00-04:00">
+                Published: Fri 19 August 2016
+        </abbr>
+
+        <address class="vcard author">
+                By                         <a class="url fn" href="/author/garett.html">Garett</a>
+        </address>
+<p>In <a href="/category/misc.html">misc</a>.</p>
+
+</footer><!-- /.post-info -->      <p>Pip, the package manager (and its package repository PyPI) is one of the most important parts of the Python ecosystem. Arguably, it's the most important part of why Python is so popular. The fact that it's so easy to import a module into Python and <a href="https://xkcd.com/353/">easily use its features</a> would be greatly hindered if the process of actually <em>getting</em> all those cool modules wasn't easy. Pip is one of the foundational tools in the Python ecosystem and is really cool to use.</p>
+<p>Which makes it even harder to understand why it's missing some very key and - I would argue - basic features.</p>
+<p>Take, for instance, upgrading all your packages.</p>
+<p>Let's look at <code>brew</code>, the awesome "missing package manager for Mac". It is another way cool package manager, that also has a really cool and taken for granted feature:</p>
+<div class="highlight"><pre><span></span>brew upgrade
+</pre></div>
+
+
+<p><strong>BOOM</strong></p>
+<p>Now all your packages managed by <code>brew</code> are updated. Simple.</p>
+<p>Ok, that's a package manager for an OS, so not quite the same (although I'm not sure if it matters or not). So let's look at another example, the node.js package manager, <code>npm</code>:</p>
+<div class="highlight"><pre><span></span>npm update
+</pre></div>
+
+
+<p><strong>WOW</strong>, yet another fine example of using only <em>2</em> commands strung together to easily update all your npm-managed node.js packages. Quite an amazing feat of technology. Since we're talking about <code>pip</code>, let's take a look at how to upgrade all your modules at once:</p>
+<div class="highlight"><pre><span></span>pip help
+
+Usage:
+  pip &lt;command&gt; [options]
+
+Commands:
+  install                     Install packages.
+  download                    Download packages.
+  uninstall                   Uninstall packages.
+  freeze                      Output installed packages in requirements format.
+  list                        List installed packages.
+  show                        Show information about installed packages.
+  search                      Search PyPI for packages.
+  wheel                       Build wheels from your requirements.
+  hash                        Compute hashes of package archives.
+  completion                  A helper command used for command completion
+  help                        Show help for commands.
+</pre></div>
+
+
+<p>Ok...I don't see an update or upgrade command. Let's try <code>install</code> and see if it has any subcommands that could work.</p>
+<div class="highlight"><pre><span></span>pip help install
+
+Install Options:
+  -c, --constraint &lt;file&gt;     Constrain versions using the given constraints file. This option can be used multiple times.
+  -e, --editable &lt;path/url&gt;   Install a project in editable mode (i.e. setuptools &quot;develop mode&quot;) from a local project path or a VCS url.
+  -r, --requirement &lt;file&gt;    Install from the given requirements file. This option can be used multiple times.
+  -b, --build &lt;dir&gt;           Directory to unpack packages into and build in.
+  -t, --target &lt;dir&gt;          Install packages into &lt;dir&gt;. By default this will not replace existing files/folders in &lt;dir&gt;. Use --upgrade to
+                              replace existing packages in &lt;dir&gt; with new versions.
+  -d, --download &lt;dir&gt;        Download packages into &lt;dir&gt; instead of installing them, regardless of what&#39;s already installed.
+  --src &lt;dir&gt;                 Directory to check out editable projects into. The default in a virtualenv is &quot;&lt;venv path&gt;/src&quot;. The default for
+                              global installs is &quot;&lt;current dir&gt;/src&quot;.
+  -U, --upgrade               Upgrade all specified packages to the newest available version. This process is recursive regardless of whether a
+                              dependency is already satisfied.
+  --force-reinstall           When upgrading, reinstall all packages even if they are already up-to-date.
+  -I, --ignore-installed      Ignore the installed packages (reinstalling instead).
+  --no-deps                   Don&#39;t install package dependencies.
+  --install-option &lt;options&gt;  Extra arguments to be supplied to the setup.py install command (use like --install-option=&quot;--install-
+                              scripts=/usr/local/bin&quot;). Use multiple --install-option options to pass multiple options to setup.py install. If you
+                              are using an option with a directory path, be sure to use absolute path.
+  --global-option &lt;options&gt;   Extra global options to be supplied to the setup.py call before the install command.
+</pre></div>
+
+
+<p>Wow, that's a lot of stuff, I had to cut off some of the output to keep this post from being unnecessarily long. Oh look! There's an <code>--upgrade</code> option. Alright, it looks like you have to specify what package to update. Maybe it will accept an asterisk as a wildcard</p>
+<div class="highlight"><pre><span></span>pip install -U *
+
+Invalid requirement: &#39;__pycache__&#39;
+Traceback (most recent call last):
+  File &quot;/usr/local/lib/python2.7/site-packages/pip/req/req_install.py&quot;, line 78, in __init__
+    req = Requirement(req)
+  File &quot;/usr/local/lib/python2.7/site-packages/pip/_vendor/packaging/requirements.py&quot;, line 96, in __init__
+    requirement_string[e.loc:e.loc + 8]))
+InvalidRequirement: Invalid requirement, parse error at &quot;&#39;__pycach&#39;&quot;
+</pre></div>
+
+
+<p>Doesn't look like that will work. After doing some Googling, the most concise way I found was</p>
+<div class="highlight"><pre><span></span>pip list -o -l | cut -d &#39; &#39; -f 1 | sudo -H xargs pip install -U
+</pre></div>
+
+
+<p>Wowza. That's a far cry from a two word command. <code>pip list -o -l</code> will show you all outdated packages in your local environment (that way if you're in a virtualenv, it's not going to try and update global packages - which could be very bad in some circumstances) in the format of <code>requests (2.10.0) - Latest: 2.11.1 [wheel]</code>. So that gets you the list of oudated packages. We then have to use <code>cut -d ' ' -f 1</code> to trim off the fat. <code>-d ' '</code> changes the field delimiter to a space, then <code>-f 1</code> tells cut to only spit out the first field, which in our case would be the actual name of each package. Finally, we'll pipe everything back into <code>pip</code> via a <code>pip install -U</code>. This is done via <code>xargs</code>, and I'm using <code>sudo -H</code> with it for times when I'm updating system level packages, with the <code>-H</code> setting the <code>HOME</code> variable to root's home directory.</p>
+<p>That's not bad, just have to do a little command line-fu, but it's nowhere near the simplicity of node's or other package managers. Oh and on a final note, it's a good idea to create an alias out of this, so that you don't actually have to <em>remember</em> that chain of commands or worse, type it out</p>
+<div class="highlight"><pre><span></span>alias pipgrade=&quot;pip list -o -l | cut -d &#39; &#39; -f 1 | sudo -H xargs pip install -U&quot;
+</pre></div>
+
+
+<h5>Bonus Points</h5>
+<p>For extra compatibility with systems that might not have the <code>cut</code> command, here's a version using awk.</p>
+<div class="highlight"><pre><span></span>pip list -o -l | awk -F&#39; &#39; &#39;{print $1}&#39; | sudo -H xargs pip install -U
+</pre></div>
+    </div><!-- /.entry-content -->
+
+  </article>
+</section>
+        <section id="extras" class="body">
+                <div class="blogroll">
+                        <h2>links</h2>
+                        <ul>
+                            <li><a href="http://getpelican.com/">Pelican</a></li>
+                            <li><a href="http://python.org/">Python.org</a></li>
+                            <li><a href="http://jinja.pocoo.org/">Jinja2</a></li>
+                            <li><a href="#">You can modify those links in your config file</a></li>
+                        </ul>
+                </div><!-- /.blogroll -->
+                <div class="social">
+                        <h2>social</h2>
+                        <ul>
+
+                            <li><a href="#">You can add links in your config file</a></li>
+                            <li><a href="#">Another social link</a></li>
+                        </ul>
+                </div><!-- /.social -->
+        </section><!-- /#extras -->
+
+        <footer id="contentinfo" class="body">
+                <address id="about" class="vcard body">
+                Proudly powered by <a href="http://getpelican.com/">Pelican</a>, which takes great advantage of <a href="http://python.org">Python</a>.
+                </address><!-- /#about -->
+
+                <p>The theme is by <a href="http://coding.smashingmagazine.com/2009/08/04/designing-a-html-5-layout-from-scratch/">Smashing Magazine</a>, thanks!</p>
+        </footer><!-- /#contentinfo -->
+
+</body>
+</html>

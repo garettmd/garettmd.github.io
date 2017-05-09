@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+        <meta charset="utf-8" />
+        <title>Create a Console Server with a Raspberry Pi</title>
+        <link rel="stylesheet" href="/theme/css/main.css" />
+
+        <!--[if IE]>
+            <script src="https://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+        <![endif]-->
+</head>
+
+<body id="index" class="home">
+        <header id="banner" class="body">
+                <h1><a href="/">garettmd </a></h1>
+                <nav><ul>
+                    <li><a href="/category/automation.html">automation</a></li>
+                    <li class="active"><a href="/category/misc.html">misc</a></li>
+                </ul></nav>
+        </header><!-- /#banner -->
+<section id="content" class="body">
+  <article>
+    <header>
+      <h1 class="entry-title">
+        <a href="/create-a-console-server-with-a-raspberry-pi.html" rel="bookmark"
+           title="Permalink to Create a Console Server with a Raspberry Pi">Create a Console Server with a Raspberry Pi</a></h1>
+    </header>
+
+    <div class="entry-content">
+<footer class="post-info">
+        <abbr class="published" title="2016-08-19T00:00:00-04:00">
+                Published: Fri 19 August 2016
+        </abbr>
+
+        <address class="vcard author">
+                By                         <a class="url fn" href="/author/garett.html">Garett</a>
+        </address>
+<p>In <a href="/category/misc.html">misc</a>.</p>
+
+</footer><!-- /.post-info -->      <blockquote>
+<p><em><a href="#09062016-update">UPDATE 9/6/2016</a>: I've added an extra step I had to take when I added a USB hub to my setup.</em></p>
+</blockquote>
+<p><br></p>
+<blockquote>
+<p>If you want to skip my ramblings and go straight to the tutorial, click <a href="#tutorial">here</a></p>
+</blockquote>
+<p><strong>I'm in the wrong business</strong></p>
+<p>I have lots of options. In the technology field, I could do systems engineering, DevOps - I could do one of those cool new bootcamp schools and learn to be a data scientist. Or, I could leave behind this fast-paced world of technology and the constant bending of my mind to conform to a machine that only speaks in two digits and pursue a different area of work. Marketing, nursing, truck driving, carpentry, farming... All valuable and meaningful work, I'm sure. And some pay better than others, but I'm convinced none offer better profit margins combined with ease of getting a product to market than <em>enterprise hardware sales</em>.</p>
+<p>Why enterprise hardware sales, you ask? Please take a look at Exhibit A (the only exhibit I've put together), a <a href="https://www.blackbox.com/en-us/store/Detail.aspx/Dual-10-100-1000-Secure-Console-Server-16-Port/LES8164A">Black Box LES8164A 16-port Secure Console Server</a>.</p>
+<p><img alt="an expensive motherboard" src="https://az849230.vo.msecnd.net/images/moreviews1/LES8164A_PCS.jpg"></p>
+<p>It is a beautiful piece of hardware, for sure. Those clean black lines, the understated simplicity. You could almost call it minimalistic...in an IBM sort of way. And really, it doesn't look that complicated, either. Yes, there are 16 ports on the back, but other than that, there's only one button, for power. And if you were to look inside of it, you'd be even more amazed at how simple this box is.</p>
+<p><img alt="a boring landscape" src="https://s3.amazonaws.com/garettmd/inside_black_box.jpg"></p>
+<p>I was just taking a picture through the vents on the side, but you can tell from the picture that there's not a lot going on, at least nothing more than most low-power hardware. And that's all there is to it. On the software side, it allows you to establish connections to serial devices that are connected to those 16 ports, via the server's own IP address and a virtual port. For example, let's say my Cisco 2911 router was connected and configured to use virtual port 5001. I would simply run <code>telnet 10.0.0.2 5001</code>, and the console server would forward all my traffic to the router, letting me connect to it as if I were directly connected over a serial connection. This is pretty cool. It also lets you do a few other configurations that are basically variations on that use case, but nothing crazy. Now, how much will this thing cost you?</p>
+<p>Only the small sum of <strong>$1,805.85</strong></p>
+<p>That's right, for more than the price of one of those 2911 routers, or even the price of a low-end rack server - <em>things that actually do something</em> - you can have yourself a pretty black box that forwards packets on to other devices connected to it. That sounds like a switch, you say. Well, you're right, it's not much more than that.</p>
+<p>So why is it $1,805.85? My only guess for why anyone can get away with selling a console server like this for $1,800+ is because of who they're selling to (enterprises). Because once you see that you can make something like this for $90 and 30 minutes of work (did I mention I spent a few days trying to setup the Black Box?), you might reconsider the industry you're in.</p>
+<h3 id='tutorial'>Raspbery Pi Console Server</h3>
+
+<p>Ah, the Raspberry Pi, a legend of computing. It has arguably been one of the most democratizing devices in recent computing history. It's combination and well-designed ratios of power, cost, approachability, and size have made this the de facto standard for hobbyists, students, and enterprise workers like me who have had their eyes opened to just how cheap these devices are, and what you're really paying for when it comes to enterprise silicon.</p>
+<p>Anyway, enough rambling. Let's build this thing.</p>
+<h4>Get a Raspberry Pi</h4>
+<p>Here is a <a href="http://amzn.to/2bq8Q3Q">Raspberry Pi 3 kit</a> that makes setting up the Pi a lot easier. It includes the Pi 3, a case, power adapter, HDMI cable, a micro SD card with NOOBS pre-loaded (so you don't need to download and format an SD card), and even a couple heatsinks (probably not necessary but cool to have). You can just get the Pi by itself, but it is way more enjoyable to get a kit so you can be up and running much faster.</p>
+<h4>Install Raspbian</h4>
+<p>First, we'll need to install the OS. You should probably use the default distro for the device, Raspbian. It's a Debian variant tweaked for the RPi that should have what you need for 95% of your use cases. There are plenty of guides on how to do this online, so I'll let you figure that out, as it's pretty straightforward anyway. And, if you use the RPi that I linked to, it will have NOOBS which makes it basically a one-click affair. After you're up and running, and made sure you've <code>sudo apt-get upgrade</code>ed your system, move to the next step, and the real fun.</p>
+<h4>Configure the network</h4>
+<p>This step is really optional, but I think a static IP would be your best bet in this case, unless you want to use something like a dynamic DNS client. Otherwise you'll be left guessing the IP address for your console server.</p>
+<p>Open up <code>/etc/dhcpcd.conf</code>, and add the below lines, replacing the <code>#</code>s with your actual address.</p>
+<div class="highlight"><pre><span></span><span class="kr">interface</span> <span class="nx">eth0</span>
+
+<span class="kr">static</span> <span class="nx">ip_address</span><span class="o">=</span><span class="err">###</span><span class="p">.</span><span class="err">###</span><span class="p">.</span><span class="err">###</span><span class="p">.</span><span class="err">###</span>
+<span class="kr">static</span> <span class="nx">routers</span><span class="o">=</span><span class="err">###</span><span class="p">.</span><span class="err">###</span><span class="p">.</span><span class="err">###</span><span class="p">.</span><span class="err">###</span>
+</pre></div>
+
+
+<h4>Setup ser2net</h4>
+<p>Note that the "router" is equivalent to the gateway, if you're not actually plugged in to a router. Next, install the ser2net package. If you also want to use telnet to console into your devices, install the telnetd package</p>
+<div class="highlight"><pre><span></span>sudo apt-get install ser2net telnetd
+</pre></div>
+
+
+<p>Now that those are complete, we need to setup our <code>/etc/ser2net.conf</code> file. Learning the syntax and structure of the configuration file kind of feels like you're learning another language or huge tool like Apache, but after you get a feel for it, it's actually pretty straightforward, and for our purposes, there's not a whole lot to setup. First, you'll want to find what serial connections you have and where they are using dmesg.</p>
+<div class="highlight"><pre><span></span>dmesg | grep tty
+
+[    0.000000] Kernel command line: 8250.nr_uarts=0 dma.dmachans=0x7f35 bcm2708_fb.fbwidth=640 bcm2708_fb.fbheight=480 bcm2709.boardrev=0xa22082 bcm2709.serial=0xb65b0142 smsc95xx.macaddr=B8:27:EB:5B:01:42 bcm2708_fb.fbswap=1 bcm2709.uart_clock=48000000 vc_mem.mem_base=0x3dc00000 vc_mem.mem_size=0x3f000000  dwc_otg.lpm_enable=0 console=ttyS0,115200 console=tty1 root=/dev/mmcblk0p7 rootfstype=ext4 elevator=deadline fsck.repair=yes rootwait
+[    0.001335] console [tty1] enabled
+[    1.935233] 3f201000.uart: ttyAMA0 at MMIO 0x3f201000 (irq = 87, base_baud = 0) is a PL011 rev2
+[  329.653259] usb 1-1.2: FTDI USB Serial Device converter now attached to ttyUSB0
+</pre></div>
+
+
+<p>In my case, the key line is the <code>USB Serial Device converter now attached to ttyUSB0</code>. This tells me that a USB device (a Cisco style console cable) is connected on the first USB port on the RPi. <code>ttyUSB0</code> corresponds to the device file in <code>/dev/ttyUSB0</code>. If you wanted to manually connect to this port, you could issue a <code>screen /dev/ttyUSB0</code> which would open up a console session. If you did that, press Ctrl+a, then Shift+k to kill that session, otherwise you won't be able to connect to it later via ser2net. After you've written down all the devices that are connected, it's time to start filling out the configuration file. Go to the bottom of the file and add something like the following:</p>
+<div class="highlight"><pre><span></span><span class="n">BANNER</span><span class="o">:</span><span class="n">banner</span><span class="o">:</span><span class="n">OnX</span> <span class="n">Lab</span> <span class="n">Console</span> <span class="n">Server</span>
+<span class="n">port</span> <span class="n">p</span> <span class="n">device</span> <span class="n">d</span> <span class="n">serial</span> <span class="n">parms</span> <span class="n">srn</span>
+
+<span class="n">TRACEFILE</span><span class="o">:</span><span class="n">tr1</span><span class="o">:/</span><span class="n">var</span><span class="sr">/log/ser2net/</span><span class="o">\</span><span class="n">p</span><span class="o">-\</span><span class="n">Y</span><span class="o">-\</span><span class="n">M</span><span class="o">-\</span><span class="n">D</span><span class="o">-\</span><span class="n">H</span><span class="o">:\</span><span class="n">i</span><span class="o">:\</span><span class="n">S</span><span class="o">.\</span><span class="n">U</span>
+<span class="mi">4001</span><span class="o">:</span><span class="n">telnet</span><span class="o">:</span><span class="mi">0</span><span class="o">:/</span><span class="n">dev</span><span class="o">/</span><span class="n">ttyUSB0</span><span class="o">:</span><span class="mi">9600</span> <span class="mi">8</span><span class="n">DATABITS</span> <span class="n">NONE</span> <span class="mi">1</span><span class="n">STOPBIT</span> <span class="n">banner</span> <span class="n">tr</span><span class="o">=</span><span class="n">tr1</span> <span class="n">timestamp</span>
+</pre></div>
+
+
+<p>Let's break this down.</p>
+<ul>
+<li>The <code>BANNER</code> section defines a banner message (like a motd) that you want to display anytime someone logs in. The all caps <code>BANNER</code> part states you're defining a banner. The next part after the colon defines the name of that banner (since you could show, for example, different banners for different connections), and part after the second colon is the actual banner message. Note that the message can be multi-line if you so please.</li>
+<li>The <code>TRACEFILE</code> portion defines a log file which will log everything that's output and input into a session. <em>This is an important thing to set up.</em> Like the <code>BANNER</code> section, the first part says that it's a tracefile you're setting up, the second part names it, and the third part is the actual file name and location. In my example, I put it under the <code>/var/log/ser2net/</code> directory, and gave it a name with some of the builtin variables ser2net uses. If you read the man page for it, you can see the full listing of options you can use. What I used in my example was:</li>
+<li><code>p</code>: that device's port</li>
+<li><code>Y</code>: today's year</li>
+<li><code>M</code>: today's month</li>
+<li><code>D</code>: today's day of the month</li>
+<li><code>H</code>: the hour in 24-hour format</li>
+<li><code>i</code>: the minute</li>
+<li><code>S</code>: the second</li>
+<li><code>U</code>: the <em>microsecond</em><br>
+   And there are a lot of other options, so you can setup your log files in whatever format makes sense to you.</li>
+<li>Start off the actual device definition with the port number you want to use. After the first colon, you'll specify the device. ser2net calls it "state". Your options are off,raw,rawlp, and telnet. Telnet will actually work with both telnet and ssh, so I'm guessing that's what you're going to use most of the time. After the second colon, you'll specify the timeout for that port, with 0 meaning disabled. After the third colon, you specify the actual device file that we grabbed using dmesg earlier. In this example it's <code>/dev/ttyUSB0</code>. After the fourth colon, you get to specify all the options. This includes the typical console settings like the baud rate, flow control, etc. Here we're using 9600 baud, 8 databits, NONE to set no parity, and 1 stop bit. We also specified the banner name from earlier (and in the way the syntax works, you probably shouldn't name any of your banners in a way that matches any of the device configuration options, to avoid confusing ser2net). The <code>tr=tr1</code> tells ser2net which tracefile to use. The reason we're explicitly naming this parameter, unlike the banner, is because you have several different options for the tracefile. <code>tr</code> tells ser2net to log all data read from the device. You can use <code>tw</code> to log all data written to the device, or <code>tb</code> for both data read and written. Note that you can use all of these options at the same time and write to three different files. <code>timestamp</code> adds a timestamp to the tracefile.</li>
+<li>There are a few other options that you can read about in the man pages, but the options I've used here are - I think - the most commonly used ones.</li>
+</ul>
+<p>Now, we need to create the directories for the trace (log) files that ser2net will write to. We don't need to create the actual files, just the directories it will write to.</p>
+<div class="highlight"><pre><span></span>mkdir /var/log/ser2net
+</pre></div>
+
+
+<p>We're almost ready to test, but first restart the ser2net daemon so that it picks up on the changes we made</p>
+<div class="highlight"><pre><span></span>/etc/init.d/restart ser2net
+</pre></div>
+
+
+<p>Now we're ready to test. Make sure your serial cables are plugged in to your device and the RPi. On another device, telnet into your RPi over the port you specified for one of your devices</p>
+<div class="highlight"><pre><span></span>telnet 10.0.0.20 4001
+</pre></div>
+
+
+<p>If everything worked, you should get the banner message you added to the configuration file, followed by whatever prompt you would normally get when directly connected to that server. To close out of it, press Ctrl+d, then <code>]</code> (the right bracket). Now, let's make sure your log file is being created successfully. Log back in to the Pi, and <code>ls -l /var/log/ser2net</code> to confirm the file is there. If you <code>cat</code> the file it should show everything you were seeing when you consoled into your other device.</p>
+<p>Congratulations, you just build a console server, and saved approximately $1,700 in doing so. You might even get a pat on the back from your boss. Now go and <a href="https://www.linode.com/docs/security/securing-your-server/">secure your Pi</a>.</p>
+<h3 id='09062016-update'>Update: USB Hub</h3>
+
+<p>The Raspberry Pi 3 comes with 4 USB 2.0 hubs, which is great, but I decided that I needed a few more ports as I would be needing console access to more than 4 servers at a time. I got an <a href="https://smile.amazon.com/dp/B005NGQWL2">Anker 10-port USB 3.0 hub</a> which is a slick little device. It's well made, and the clear numbering on the side makes it easy to use in my case, where I would be communicating to people onsite where to plug in different console cables while I worked remotely. I pluggged the hub into the Pi, then checked dmesg to see if it recognized the hub. It gave me some errors like <code>port1: unable to enumerate USB device</code> and the key one being <code>device not accepting address #, error -71</code>. For some reason, the Pi wasn't able to communicate correctly with the hub and its ports. After some searching, I found some options that worked for some people, but ended up landing on one that made the Pi use USB 1.1 (!). You use these options by adding them to the <code>/boot/cmdline.txt</code> then rebooting.</p>
+<ul>
+<li><code>usbcore.old_scheme_first=Y</code> - This appears to make the Pi use an older style protocol that uses a smaller initialization handshake with the device than what many newer devices use. It didn't work in my situation.</li>
+<li><code>usbcore.use_both_schemes=Y</code> - This should make the Pi use both the older (from the last bullet point) and the newer schemes, but this didn't work for me, either.</li>
+<li><strong><code>dwc_otg.speed=1</code></strong> - This essentially tells the Pi to operate at USB 1.1 (read: <em>old school</em>) speeds. I saw a lot of warnings about this, as it apparently can cause more problems on some devices, making Pi take forever to boot since it has trouble doing even basic communication with some devices. I tried the other options first because of this, but in the end, setting the speed lower made the hub work. It's definitely a workaround, and could be problematic for other devices to connect (many people had problems getting keyboards and mice to connect while this option was turned on) but for my single-purpose device, it works for me.</li>
+</ul>
+<!--TODO: Get the Amazon affiliate stuff up and running-->
+
+<!--TODO: Add image of the inside of box-->
+    </div><!-- /.entry-content -->
+
+  </article>
+</section>
+        <section id="extras" class="body">
+                <div class="blogroll">
+                        <h2>links</h2>
+                        <ul>
+                            <li><a href="http://getpelican.com/">Pelican</a></li>
+                            <li><a href="http://python.org/">Python.org</a></li>
+                            <li><a href="http://jinja.pocoo.org/">Jinja2</a></li>
+                            <li><a href="#">You can modify those links in your config file</a></li>
+                        </ul>
+                </div><!-- /.blogroll -->
+                <div class="social">
+                        <h2>social</h2>
+                        <ul>
+
+                            <li><a href="#">You can add links in your config file</a></li>
+                            <li><a href="#">Another social link</a></li>
+                        </ul>
+                </div><!-- /.social -->
+        </section><!-- /#extras -->
+
+        <footer id="contentinfo" class="body">
+                <address id="about" class="vcard body">
+                Proudly powered by <a href="http://getpelican.com/">Pelican</a>, which takes great advantage of <a href="http://python.org">Python</a>.
+                </address><!-- /#about -->
+
+                <p>The theme is by <a href="http://coding.smashingmagazine.com/2009/08/04/designing-a-html-5-layout-from-scratch/">Smashing Magazine</a>, thanks!</p>
+        </footer><!-- /#contentinfo -->
+
+</body>
+</html>
