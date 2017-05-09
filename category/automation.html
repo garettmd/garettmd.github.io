@@ -1,164 +1,113 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-        <meta charset="utf-8" />
-        <title>garettmd - automation</title>
-        <link rel="stylesheet" href="/theme/css/main.css" />
+  <link href='//fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,700,400italic' rel='stylesheet' type='text/css'>
 
-        <!--[if IE]>
-            <script src="https://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
-        <![endif]-->
+    <link rel="stylesheet" type="text/css" href="/theme/stylesheet/style.min.css">
+
+  <link rel="stylesheet" type="text/css" href="/theme/pygments/github.min.css">
+  <link rel="stylesheet" type="text/css" href="/theme/font-awesome/css/font-awesome.min.css">
+
+
+
+
+
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="HandheldFriendly" content="True" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="" />
+
+
+    <meta name="author" content="garettmd" />
+    <meta name="description" content="" />
+<meta property="og:site_name" content="garettmd"/>
+<meta property="og:type" content="blog"/>
+<meta property="og:title" content="garettmd"/>
+<meta property="og:description" content=""/>
+<meta property="og:locale" content="en_US"/>
+<meta property="og:url" content=""/>
+
+  <title>garettmd &ndash;     Category automation
+</title>
+
 </head>
-
-<body id="index" class="home">
-        <header id="banner" class="body">
-                <h1><a href="/">garettmd </a></h1>
-                <nav><ul>
-                    <li class="active"><a href="/category/automation.html">automation</a></li>
-                    <li><a href="/category/misc.html">misc</a></li>
-                </ul></nav>
-        </header><!-- /#banner -->
-
-            <aside id="featured" class="body">
-                <article>
-                    <h1 class="entry-title"><a href="/writing-a-dynamic-inventory-script-for-ansible.html">Writing a Dynamic Inventory Script for Ansible</a></h1>
-<footer class="post-info">
-        <abbr class="published" title="2017-05-09T00:00:00-04:00">
-                Published: Tue 09 May 2017
-        </abbr>
-
-        <address class="vcard author">
-                By                         <a class="url fn" href="/author/garett.html">Garett</a>
-        </address>
-<p>In <a href="/category/automation.html">automation</a>.</p>
-<p>tags: <a href="/tag/ansible.html">ansible</a> </p>
-</footer><!-- /.post-info --><h1>Writing a Dynamic Inventory Script for Ansible</h1>
-<p>One of the cool features of Ansible is the ability to separate out your hosts in different groups in an <em>inventory</em> file. For example, you can have a webserver group, a database group, and a proxy group.</p>
-<div class="highlight"><pre><span></span><span class="k">[webserver]</span>
-<span class="na">webserv01</span>
-<span class="na">webserv02</span>
-<span class="na">webserv03</span>
-<span class="na">webserv04</span>
-<span class="na">webserv05</span>
-
-<span class="k">[database]</span>
-<span class="na">postgres01</span>
-<span class="na">postgres02</span>
-<span class="na">oracle01</span>
-<span class="na">oracle02</span>
-<span class="na">influxdb01</span>
-
-<span class="k">[proxy]</span>
-<span class="na">134.72.87.5</span>
-<span class="na">134.72.86.5</span>
-<span class="na">134.72.91.5</span>
-</pre></div>
+<body>
+  <aside>
+    <div>
+      <a href="">
+        <img src="/theme/img/profile.png" alt="" title="">
+      </a>
+      <h1><a href=""></a></h1>
 
 
-<p>This allows your playbooks to target one or more  groups at a time, while keeping a comprehensive list of all your servers (and you can also have sub-groups, attach variables to different hosts, and other cool stuff)</p>
-<p>But what if your hostnames or IPs are more ephemeral? Maybe this morning you'd have <code>webserv01</code>-<code>webserv05</code> but this afternoon you might have <code>webserv09</code>-<code>webserv13</code> or some other random combination. You might have some method of gathering the host information, then you could update the hosts file manually or even have some script that does it. But if your hosts are changing all the time, why even worry about keeping a static file updated? Isn't there some way to just tell Ansible at runtime what hosts to act on?</p>
-<p>Well yes there is.</p>
-<p>Ansible allows you to pass a script as a parameter to the inventory flag (<code>-i</code>) when running the <code>ansible-playbook</code> command. This means you could run</p>
-<div class="highlight"><pre><span></span>ansible-playbook playbooks/build_everything.yml -i my_inventory_script.py
-</pre></div>
+      <nav>
+        <ul class="list">
+
+          <li><a href="http://getpelican.com/" target="_blank">Pelican</a></li>
+          <li><a href="http://python.org/" target="_blank">Python.org</a></li>
+          <li><a href="http://jinja.pocoo.org/" target="_blank">Jinja2</a></li>
+          <li><a href="#" target="_blank">You can modify those links in your config file</a></li>
+        </ul>
+      </nav>
+
+      <ul class="social">
+        <li><a class="sc-You can add links in your config file" href="#" target="_blank"><i class="fa fa-You can add links in your config file"></i></a></li>
+        <li><a class="sc-Another social link" href="#" target="_blank"><i class="fa fa-Another social link"></i></a></li>
+      </ul>
+    </div>
 
 
-<p>and instead of reading from a hosts file, it will read the output (a JSON dictionary) from your script use that as the hosts list, overriding any hosts files you might have specified in <code>ansible.cfg</code> or via environment variables.</p>
-<h3>Example</h3>
-<p>Here's an example script I wrote that pulls in host info from a dhcp server's lease file, and plugs that in to Ansible. Some notes on this setup:</p>
-<ul>
-<li>The DHCP service is <code>dnsmasq</code>. This is a lightweight, easy to setup DHCP server (among other things) that stores its DHCP leases in a file that is by default is located at <code>/var/lib/misc/dnsmasq.leases</code>.</li>
-<li>I'm running Ansible from the machine that DHCP is running on</li>
-<li>The playbook is looking for a host group called "idrac" (it's for managing <a href="https://en.wikipedia.org/wiki/Dell_DRAC">Dell servers</a>)</li>
-<li>I also wanted to use the same script to tell me how many hosts matched. I'm using it to build out a frame of new Dell R630s, so I need to make sure that all of them have received IP addresses before running the playbook. I get the count by issuing a <code>-c</code> which will just spit out the number of idrac hosts in the leases file. I've included it here just to demonstrate that your dynamic inventory script can do other things as well, which means you can repurpose an existing script you might have to work with Ansible.</li>
-</ul>
-<p>Now that all of that is out of the way, here's the script:</p>
-<div class="highlight"><pre><span></span><span class="ch">#!/usr/bin/env python</span>
-
-<span class="kn">import</span> <span class="nn">subprocess</span>
-<span class="kn">import</span> <span class="nn">argparse</span>
-
-<span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">()</span>
-<span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;-c&#39;</span><span class="p">,</span> <span class="s1">&#39;--count&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;store_true&#39;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s1">&#39;count&#39;</span><span class="p">)</span>
-<span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s1">&#39;--list&#39;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s1">&#39;store_true&#39;</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s1">&#39;list&#39;</span><span class="p">)</span>
-<span class="n">parser</span><span class="o">.</span><span class="n">set_defaults</span><span class="p">(</span><span class="n">count</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
-<span class="n">args</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
-
-<span class="n">bash_out</span> <span class="o">=</span> <span class="n">subprocess</span><span class="o">.</span><span class="n">Popen</span><span class="p">(</span><span class="s2">&quot;grep idrac /var/lib/misc/dnsmasq.leases | awk &#39;{print $3}&#39;&quot;</span><span class="p">,</span> <span class="n">shell</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">stdout</span><span class="o">=</span><span class="n">subprocess</span><span class="o">.</span><span class="n">PIPE</span><span class="p">)</span><span class="o">.</span><span class="n">stdout</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
-
-<span class="n">servers</span> <span class="o">=</span> <span class="p">{</span>
-    <span class="s1">&#39;idrac&#39;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s1">&#39;hosts&#39;</span><span class="p">:</span> <span class="p">[]</span>
-    <span class="p">},</span>
-    <span class="s1">&#39;local&#39;</span><span class="p">:</span> <span class="p">{</span>
-        <span class="s1">&#39;hosts&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;127.0.0.1&#39;</span><span class="p">]</span>
-    <span class="p">}</span>
-<span class="p">}</span>
-
-<span class="n">bash_out_list</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">bash_out</span><span class="p">)</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
-<span class="n">server_list</span> <span class="o">=</span> <span class="p">[]</span>
-
-<span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">bash_out_list</span><span class="p">:</span>
-    <span class="n">server_list</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\&#39;</span><span class="s1">&#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;b&quot;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">))</span>
-
-<span class="n">server_list</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
-
-<span class="k">for</span> <span class="n">server</span> <span class="ow">in</span> <span class="n">server_list</span><span class="p">:</span>
-    <span class="n">servers</span><span class="p">[</span><span class="s1">&#39;idrac&#39;</span><span class="p">][</span><span class="s1">&#39;hosts&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">server</span><span class="p">)</span>
-
-<span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">count</span><span class="p">:</span>
-    <span class="k">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">servers</span><span class="p">[</span><span class="s1">&#39;idrac&#39;</span><span class="p">][</span><span class="s1">&#39;hosts&#39;</span><span class="p">]))</span>
-<span class="k">else</span><span class="p">:</span>
-    <span class="k">print</span><span class="p">(</span><span class="n">servers</span><span class="p">)</span>
-</pre></div>
+  </aside>
+  <main>
 
 
-<p>Here's what is going on:</p>
-<ol>
-<li>The <code>bash_out =</code> line is just making a subprocess call to bash <code>grep</code>'s for the idrac hosts from the leases file, then <code>awk</code>'s out the column that actually lists the IP addresses.</li>
-<li>Creating the <code>servers</code> dictionary makes the structure that is necessary for Ansible to parse it. Basically, your top keys will be the server groups, and their values will be a list of all the hosts for that group. There are some more complex things you can do, along the lines of setting up host variables and things like that, but I'll cover that in a later post.</li>
-<li><code>bash_out_list</code> split's the long string into a list separated  by the newline character (<code>\n</code>).</li>
-<li><code>server_list</code> is the list variable I'll use to store the cleaned up contents of <code>bash_out_list</code>.</li>
-<li>The first for loop cleans up the bash output, removing any extraneous characters that can show up, and adds those cleaned up elements to <code>server_list</code>.</li>
-<li>Then, remove any blank lines rom <code>server_list</code>.</li>
-<li>FInally, we can start building the list of hosts in the idrac group. We just iterate over the hosts in <code>server_list</code>, and append them to idrac hosts list in the <code>servers</code> dictionary.</li>
-<li>Next, there's some logic to determine if the script is being used to supply an inventory to Ansible or just reporting a count of all the idrac hosts with DHCP addresses:</li>
-<li>If the <code>-c</code> flag was specified, which is saved as <code>True</code> for the boolean variable <code>count</code>, it will merely print out the result of finding the length of the idrac hosts list.</li>
-<li>If the command didn't use any flags, it will simply print out the servers dictionary. Ansible expects the JSON format, which fortunately in Python dictionaries are pretty much the same as JSON. But if you were using a different language, know that you'll need to format it into JSON somehow.</li>
-</ol>
-<p>And that's it for the script. You'd run it just like my example at the beginning of the post, along with any other arguments needed for your run. This is a simple example but but it allows you to not need to perform any steps like updating a hosts file before running your playbook. This could be really useful in other cases where you might be running a playbook based off a cron job or similar scheduler, as it could just pull in the inventory dynamically without any intervention. And lots of other times. Note that there are modules like this available for the major cloud providers like AWS, OpenStack, Zabbix, and others that would obviously be preferred if you're using those environments. But it can be really handy to know how to roll your own for your own use cases.</p>
-<h3>Go Forth and Ansible</h3>
-<p>Hopefully this example will be of use to you. If you want to learn more about what you can do with dynamic inventories in Ansible, check out the links below from Ansible's documentation. There is a ton of flexibility with Ansible's inventory (using both static and dynamic, static groups of dynamic inventories, etc.) so most things you could think of doing would probably be possible. Check out the documentation, and definitely comment here to show off how you use dynamic inventories.</p>
-<p><a href="http://docs.ansible.com/ansible/intro_dynamic_inventory.html">Dynamic Inventory</a> - What you can do with dynamic inventories</p>
-<p><a href="http://docs.ansible.com/ansible/dev_guide/developing_inventory.html">Developing Dynamic Inventory Sources</a> - What we did, making our own sources</p>                </article>
-            </aside><!-- /#featured -->
-        <section id="extras" class="body">
-                <div class="blogroll">
-                        <h2>links</h2>
-                        <ul>
-                            <li><a href="http://getpelican.com/">Pelican</a></li>
-                            <li><a href="http://python.org/">Python.org</a></li>
-                            <li><a href="http://jinja.pocoo.org/">Jinja2</a></li>
-                            <li><a href="#">You can modify those links in your config file</a></li>
-                        </ul>
-                </div><!-- /.blogroll -->
-                <div class="social">
-                        <h2>social</h2>
-                        <ul>
 
-                            <li><a href="#">You can add links in your config file</a></li>
-                            <li><a href="#">Another social link</a></li>
-                        </ul>
-                </div><!-- /.social -->
-        </section><!-- /#extras -->
 
-        <footer id="contentinfo" class="body">
-                <address id="about" class="vcard body">
-                Proudly powered by <a href="http://getpelican.com/">Pelican</a>, which takes great advantage of <a href="http://python.org">Python</a>.
-                </address><!-- /#about -->
+<article>
+  <header>
+    <h2><a href="/writing-a-dynamic-inventory-script-for-ansible.html#writing-a-dynamic-inventory-script-for-ansible">Writing a Dynamic Inventory Script for Ansible</a></h2>
+    <p>
+          Posted on Tue 09 May 2017 in <a href="/category/automation.html">automation</a>
 
-                <p>The theme is by <a href="http://coding.smashingmagazine.com/2009/08/04/designing-a-html-5-layout-from-scratch/">Smashing Magazine</a>, thanks!</p>
-        </footer><!-- /#contentinfo -->
 
+          &#8226;     Tagged with
+
+              <a href="/tag/ansible.html">ansible</a>
+    </p>
+  </header>
+  <div>
+      <p>How to write a dynamic inventory script for Ansible</p>
+      <br>
+      <a class="btn" href="/writing-a-dynamic-inventory-script-for-ansible.html#writing-a-dynamic-inventory-script-for-ansible">    Continue reading
+</a>
+  </div>
+</article>
+
+
+
+
+
+    <footer>
+<p>&copy; garettmd </p>
+<p>    Powered by <a href="http://getpelican.com" target="_blank">Pelican</a> - <a href="https://github.com/alexandrevicenzi/flex" target="_blank">Flex</a> theme by <a href="http://alexandrevicenzi.com" target="_blank">Alexandre Vicenzi</a>
+</p>    </footer>
+  </main>
+
+
+
+
+
+<script type="application/ld+json">
+{
+  "@context" : "http://schema.org",
+  "@type" : "Blog",
+  "name": " garettmd ",
+  "url" : "",
+  "image": "",
+  "description": ""
+}
+</script>
 </body>
 </html>
