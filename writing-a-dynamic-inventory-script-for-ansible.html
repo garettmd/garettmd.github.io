@@ -59,7 +59,6 @@
 
       <ul class="social">
         <li><a class="sc-linkedin" href="https://www.linkedin.com/in/garettmd/" target="_blank"><i class="fa fa-linkedin"></i></a></li>
-        <li><a class="sc-Another social link" href="#" target="_blank"><i class="fa fa-Another social link"></i></a></li>
       </ul>
     </div>
 
@@ -82,23 +81,23 @@
   <div>
     <p>One of the cool features of Ansible is the ability to separate out your hosts in different groups in an <em>inventory</em> file. For example, you can have a webserver group, a database group, and a proxy group.</p>
 <div class="highlight"><pre><span></span><span class="k">[webserver]</span>
-<span class="na">webserv01</span>
-<span class="na">webserv02</span>
-<span class="na">webserv03</span>
-<span class="na">webserv04</span>
-<span class="na">webserv05</span>
+<span class="err">webserv01</span>
+<span class="err">webserv02</span>
+<span class="err">webserv03</span>
+<span class="err">webserv04</span>
+<span class="err">webserv05</span>
 
 <span class="k">[database]</span>
-<span class="na">postgres01</span>
-<span class="na">postgres02</span>
-<span class="na">oracle01</span>
-<span class="na">oracle02</span>
-<span class="na">influxdb01</span>
+<span class="err">postgres01</span>
+<span class="err">postgres02</span>
+<span class="err">oracle01</span>
+<span class="err">oracle02</span>
+<span class="err">influxdb01</span>
 
 <span class="k">[proxy]</span>
-<span class="na">134.72.87.5</span>
-<span class="na">134.72.86.5</span>
-<span class="na">134.72.91.5</span>
+<span class="err">134.72.87.5</span>
+<span class="err">134.72.86.5</span>
+<span class="err">134.72.91.5</span>
 </pre></div>
 
 
@@ -178,8 +177,6 @@
 <p>Hopefully this example will be of use to you. If you want to learn more about what you can do with dynamic inventories in Ansible, check out the links below from Ansible's documentation. There is a ton of flexibility with Ansible's inventory (using both static and dynamic, static groups of dynamic inventories, etc.) so most things you could think of doing would probably be possible. Check out the documentation, and definitely comment here to show off how you use dynamic inventories.</p>
 <p><a href="http://docs.ansible.com/ansible/intro_dynamic_inventory.html">Dynamic Inventory</a> - What you can do with dynamic inventories</p>
 <p><a href="http://docs.ansible.com/ansible/dev_guide/developing_inventory.html">Developing Dynamic Inventory Sources</a> - What we did, making our own sources</p>
-<div class="highlight"><pre><span></span>
-</pre></div>
   </div>
   <div class="tag-cloud">
     <p>

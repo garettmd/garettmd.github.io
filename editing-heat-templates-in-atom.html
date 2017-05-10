@@ -57,7 +57,6 @@
 
       <ul class="social">
         <li><a class="sc-linkedin" href="https://www.linkedin.com/in/garettmd/" target="_blank"><i class="fa fa-linkedin"></i></a></li>
-        <li><a class="sc-Another social link" href="#" target="_blank"><i class="fa fa-Another social link"></i></a></li>
       </ul>
     </div>
 
@@ -116,12 +115,12 @@
 <p>Click on the text that says "# Issue" and a little box will pop up giving you a clue as to what is wrong.</p>
 <p><img alt="tell me what's wrong baby" src="http://image.prntscr.com/image/71ebfaf4b15644d2bedf7752b7375988.png"></p>
 <p>What does that mean? Well, thanks to syntax highlighting, if we look at the text above, we can see that pattern of colors is broken up by that plain, boring grey color. This should give you a clue as to what's wrong. A lot of YAML consists of defining parameters in a <code>key: value</code> layout. What we're missing on the line above is a colon! Add that colon, then wait a second to see if the linter finds anything else. You'll find that as you correct one issue, the linter might find another. Just as in real life, it might feel like you're going down a rabbit-hole of your own mistakes, but don't worry, it's just a YAML file. No one will judge you for it (unless you go ahead and run your Heat template knowing that there are errors in it, then your boss might be upset). Just keep correcting errors until you're not seeing anymore errors. And then to be safe, you can do a dry-run:</p>
-<div class="highlight"><pre><span></span>heat stack-preview -f anything.yaml newstack
+<div class="highlight"><pre><span></span><span class="n">heat</span> <span class="n">stack</span><span class="o">-</span><span class="n">preview</span> <span class="o">-</span><span class="n">f</span> <span class="n">anything</span><span class="o">.</span><span class="n">yaml</span> <span class="n">newstack</span>
 </pre></div>
 
 
 <p>Or if you're using the new unified command line tool (Oslo):</p>
-<div class="highlight"><pre><span></span>openstack stack create -t anything.yaml --dry-run newstack
+<div class="highlight"><pre><span></span><span class="n">openstack</span> <span class="n">stack</span> <span class="n">create</span> <span class="o">-</span><span class="n">t</span> <span class="n">anything</span><span class="o">.</span><span class="n">yaml</span> <span class="o">--</span><span class="n">dry</span><span class="o">-</span><span class="n">run</span> <span class="n">newstack</span>
 </pre></div>
 
 
