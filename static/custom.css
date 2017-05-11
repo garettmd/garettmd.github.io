@@ -1,0 +1,9 @@
+pre {
+    font-family: "mono";
+    color: whitesmoke !important;
+}
+
+.err {
+    color: whitesmoke;
+    background-color: #49483e;
+}

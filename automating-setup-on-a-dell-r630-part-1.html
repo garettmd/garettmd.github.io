@@ -4,12 +4,12 @@
 <head>
   <link href='//fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,700,400italic' rel='stylesheet' type='text/css'>
 
-    <link rel="stylesheet" type="text/css" href="/theme/stylesheet/style.min.css">
+    <link rel="stylesheet" type="text/css" href="http://localhost:8000/theme/stylesheet/style.min.css">
 
-  <link rel="stylesheet" type="text/css" href="/theme/pygments/monokai.min.css">
-  <link rel="stylesheet" type="text/css" href="/theme/font-awesome/css/font-awesome.min.css">
+  <link rel="stylesheet" type="text/css" href="http://localhost:8000/theme/pygments/monokai.min.css">
+  <link rel="stylesheet" type="text/css" href="http://localhost:8000/theme/font-awesome/css/font-awesome.min.css">
 
-    <link href="/static/custom.css" rel="stylesheet">
+    <link href="http://localhost:8000/static/custom.css" rel="stylesheet">
 
 
 
@@ -31,30 +31,30 @@
 <meta name="author" content="Garett" />
 <meta name="description" content="Recently I was setting up a new server rack with several Dell R630s. The out-of-band management tool for Dell devices is called iDRAC. It works fine for most cases, I suppose. You can configure iDRAC and other BIOS settings over ssh allowing you to script out your work which is …" />
 <meta name="keywords" content="">
-<meta property="og:site_name" content="garettmd"/>
+<meta property="og:site_name" content="garettmd.com"/>
 <meta property="og:title" content="Automating Setup on a Dell R630, Part 1"/>
 <meta property="og:description" content="Recently I was setting up a new server rack with several Dell R630s. The out-of-band management tool for Dell devices is called iDRAC. It works fine for most cases, I suppose. You can configure iDRAC and other BIOS settings over ssh allowing you to script out your work which is …"/>
 <meta property="og:locale" content="en_US"/>
-<meta property="og:url" content="/automating-setup-on-a-dell-r630-part-1.html"/>
+<meta property="og:url" content="http://localhost:8000/automating-setup-on-a-dell-r630-part-1.html"/>
 <meta property="og:type" content="article"/>
 <meta property="article:published_time" content="2016-12-01 00:00:00-05:00"/>
 <meta property="article:modified_time" content=""/>
-<meta property="article:author" content="/author/garett.html">
-<meta property="article:section" content="misc"/>
+<meta property="article:author" content="http://localhost:8000/author/garett.html">
+<meta property="article:section" content="articles"/>
 <meta property="og:image" content="">
 
-  <title>garettmd &ndash; Automating Setup on a Dell R630, Part 1</title>
+  <title>garettmd.com &ndash; Automating Setup on a Dell R630, Part 1</title>
 
 </head>
 <body>
   <aside>
     <div>
-      <a href="">
-        <img src="/theme/img/profile.png" alt="Human as a Service" title="Human as a Service">
+      <a href="http://localhost:8000">
+        <img src="http://localhost:8000/theme/img/profile.png" alt="Human as a Service" title="Human as a Service">
       </a>
-      <h1><a href="">Human as a Service</a></h1>
+      <h1><a href="http://localhost:8000">Human as a Service</a></h1>
 
-
+<p>Garett's blog</p>
 
       <ul class="social">
         <li><a class="sc-linkedin" href="https://www.linkedin.com/in/garettmd/" target="_blank"><i class="fa fa-linkedin"></i></a></li>
@@ -70,7 +70,7 @@
   <header>
     <h1 id="automating-setup-on-a-dell-r630-part-1">Automating Setup on a Dell R630, Part 1</h1>
     <p>
-          Posted on Thu 01 December 2016 in <a href="/category/misc.html">misc</a>
+          Posted on Thu 01 December 2016 in <a href="http://localhost:8000/category/articles.html">articles</a>
 
 
     </p>
@@ -102,12 +102,12 @@
 <p>Now we're cooking with gas!</p>
 <h3>Scripts</h3>
 <p>We're going to attempt to make our scripts modular, that way base ssh and racadm logic that isn't going to change will stay in one shell script, and the actual racadm commands that will vary depending on what operation we want will stay in their own scripts. So our directory structure will look something like this:</p>
-<div class="highlight"><pre><span></span>idrac.sh
-idrac_config.sh
-idrac_config_bigswitch.sh
-idrac_config_nostorage.sh
-idrac_enable_pxe.sh
-idrac_get_ips.sh
+<div class="highlight"><pre><span></span><span class="n">idrac</span><span class="o">.</span><span class="n">sh</span>
+<span class="n">idrac_config</span><span class="o">.</span><span class="n">sh</span>
+<span class="n">idrac_config_bigswitch</span><span class="o">.</span><span class="n">sh</span>
+<span class="n">idrac_config_nostorage</span><span class="o">.</span><span class="n">sh</span>
+<span class="n">idrac_enable_pxe</span><span class="o">.</span><span class="n">sh</span>
+<span class="n">idrac_get_ips</span><span class="o">.</span><span class="n">sh</span>
 </pre></div>
 
 
@@ -219,8 +219,8 @@ sshpass -p <span class="s2">&quot;</span><span class="si">${</span><span class="
 {
   "@context" : "http://schema.org",
   "@type" : "Blog",
-  "name": " garettmd ",
-  "url" : "",
+  "name": " garettmd.com ",
+  "url" : "http://localhost:8000",
   "image": "",
   "description": ""
 }

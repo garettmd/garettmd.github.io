@@ -4,12 +4,12 @@
 <head>
   <link href='//fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,700,400italic' rel='stylesheet' type='text/css'>
 
-    <link rel="stylesheet" type="text/css" href="/theme/stylesheet/style.min.css">
+    <link rel="stylesheet" type="text/css" href="http://localhost:8000/theme/stylesheet/style.min.css">
 
-  <link rel="stylesheet" type="text/css" href="/theme/pygments/monokai.min.css">
-  <link rel="stylesheet" type="text/css" href="/theme/font-awesome/css/font-awesome.min.css">
+  <link rel="stylesheet" type="text/css" href="http://localhost:8000/theme/pygments/monokai.min.css">
+  <link rel="stylesheet" type="text/css" href="http://localhost:8000/theme/font-awesome/css/font-awesome.min.css">
 
-    <link href="/static/custom.css" rel="stylesheet">
+    <link href="http://localhost:8000/static/custom.css" rel="stylesheet">
 
 
 
@@ -31,30 +31,30 @@
 <meta name="author" content="Garett" />
 <meta name="description" content="UPDATE 9/6/2016: I've added an extra step I had to take when I added a USB hub to my setup. If you want to skip my ramblings and go straight to the tutorial, click here I'm in the wrong business I have lots of options. In the technology …" />
 <meta name="keywords" content="">
-<meta property="og:site_name" content="garettmd"/>
+<meta property="og:site_name" content="garettmd.com"/>
 <meta property="og:title" content="Create a Console Server with a Raspberry Pi"/>
 <meta property="og:description" content="UPDATE 9/6/2016: I've added an extra step I had to take when I added a USB hub to my setup. If you want to skip my ramblings and go straight to the tutorial, click here I'm in the wrong business I have lots of options. In the technology …"/>
 <meta property="og:locale" content="en_US"/>
-<meta property="og:url" content="/create-a-console-server-with-a-raspberry-pi.html"/>
+<meta property="og:url" content="http://localhost:8000/create-a-console-server-with-a-raspberry-pi.html"/>
 <meta property="og:type" content="article"/>
 <meta property="article:published_time" content="2016-08-19 00:00:00-04:00"/>
 <meta property="article:modified_time" content=""/>
-<meta property="article:author" content="/author/garett.html">
-<meta property="article:section" content="misc"/>
+<meta property="article:author" content="http://localhost:8000/author/garett.html">
+<meta property="article:section" content="articles"/>
 <meta property="og:image" content="">
 
-  <title>garettmd &ndash; Create a Console Server with a Raspberry Pi</title>
+  <title>garettmd.com &ndash; Create a Console Server with a Raspberry Pi</title>
 
 </head>
 <body>
   <aside>
     <div>
-      <a href="">
-        <img src="/theme/img/profile.png" alt="Human as a Service" title="Human as a Service">
+      <a href="http://localhost:8000">
+        <img src="http://localhost:8000/theme/img/profile.png" alt="Human as a Service" title="Human as a Service">
       </a>
-      <h1><a href="">Human as a Service</a></h1>
+      <h1><a href="http://localhost:8000">Human as a Service</a></h1>
 
-
+<p>Garett's blog</p>
 
       <ul class="social">
         <li><a class="sc-linkedin" href="https://www.linkedin.com/in/garettmd/" target="_blank"><i class="fa fa-linkedin"></i></a></li>
@@ -70,7 +70,7 @@
   <header>
     <h1 id="create-a-console-server-with-a-raspberry-pi">Create a Console Server with a Raspberry Pi</h1>
     <p>
-          Posted on Fri 19 August 2016 in <a href="/category/misc.html">misc</a>
+          Posted on Fri 19 August 2016 in <a href="http://localhost:8000/category/articles.html">articles</a>
 
 
     </p>
@@ -155,17 +155,17 @@
 <li>There are a few other options that you can read about in the man pages, but the options I've used here are - I think - the most commonly used ones.</li>
 </ul>
 <p>Now, we need to create the directories for the trace (log) files that ser2net will write to. We don't need to create the actual files, just the directories it will write to.</p>
-<div class="highlight"><pre><span></span>mkdir /var/log/ser2net
+<div class="highlight"><pre><span></span><span class="n">mkdir</span> <span class="o">/</span><span class="n">var</span><span class="o">/</span><span class="n">log</span><span class="o">/</span><span class="n">ser2net</span>
 </pre></div>
 
 
 <p>We're almost ready to test, but first restart the ser2net daemon so that it picks up on the changes we made</p>
-<div class="highlight"><pre><span></span>/etc/init.d/restart ser2net
+<div class="highlight"><pre><span></span><span class="o">/</span><span class="n">etc</span><span class="o">/</span><span class="n">init</span><span class="o">.</span><span class="n">d</span><span class="o">/</span><span class="n">restart</span> <span class="n">ser2net</span>
 </pre></div>
 
 
 <p>Now we're ready to test. Make sure your serial cables are plugged in to your device and the RPi. On another device, telnet into your RPi over the port you specified for one of your devices</p>
-<div class="highlight"><pre><span></span>telnet 10.0.0.20 4001
+<div class="highlight"><pre><span></span><span class="n">telnet</span> <span class="mf">10.0</span><span class="o">.</span><span class="mf">0.20</span> <span class="mi">4001</span>
 </pre></div>
 
 
@@ -220,8 +220,8 @@
 {
   "@context" : "http://schema.org",
   "@type" : "Blog",
-  "name": " garettmd ",
-  "url" : "",
+  "name": " garettmd.com ",
+  "url" : "http://localhost:8000",
   "image": "",
   "description": ""
 }

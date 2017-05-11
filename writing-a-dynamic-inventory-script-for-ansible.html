@@ -4,12 +4,12 @@
 <head>
   <link href='//fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,700,400italic' rel='stylesheet' type='text/css'>
 
-    <link rel="stylesheet" type="text/css" href="/theme/stylesheet/style.min.css">
+    <link rel="stylesheet" type="text/css" href="http://localhost:8000/theme/stylesheet/style.min.css">
 
-  <link rel="stylesheet" type="text/css" href="/theme/pygments/monokai.min.css">
-  <link rel="stylesheet" type="text/css" href="/theme/font-awesome/css/font-awesome.min.css">
+  <link rel="stylesheet" type="text/css" href="http://localhost:8000/theme/pygments/monokai.min.css">
+  <link rel="stylesheet" type="text/css" href="http://localhost:8000/theme/font-awesome/css/font-awesome.min.css">
 
-    <link href="/static/custom.css" rel="stylesheet">
+    <link href="http://localhost:8000/static/custom.css" rel="stylesheet">
 
 
 
@@ -31,32 +31,32 @@
 <meta name="author" content="Garett" />
 <meta name="description" content="How to write a dynamic inventory script for Ansible" />
 <meta name="keywords" content="ansible, idrac">
-<meta property="og:site_name" content="garettmd"/>
+<meta property="og:site_name" content="garettmd.com"/>
 <meta property="og:title" content="Writing a Dynamic Inventory Script for Ansible"/>
 <meta property="og:description" content="How to write a dynamic inventory script for Ansible"/>
 <meta property="og:locale" content="en_US"/>
-<meta property="og:url" content="/writing-a-dynamic-inventory-script-for-ansible.html"/>
+<meta property="og:url" content="http://localhost:8000/writing-a-dynamic-inventory-script-for-ansible.html"/>
 <meta property="og:type" content="article"/>
 <meta property="article:published_time" content="2017-05-09 00:00:00-04:00"/>
 <meta property="article:modified_time" content=""/>
-<meta property="article:author" content="/author/garett.html">
+<meta property="article:author" content="http://localhost:8000/author/garett.html">
 <meta property="article:section" content="automation"/>
 <meta property="article:tag" content="ansible"/>
 <meta property="article:tag" content="idrac"/>
 <meta property="og:image" content="">
 
-  <title>garettmd &ndash; Writing a Dynamic Inventory Script for Ansible</title>
+  <title>garettmd.com &ndash; Writing a Dynamic Inventory Script for Ansible</title>
 
 </head>
 <body>
   <aside>
     <div>
-      <a href="">
-        <img src="/theme/img/profile.png" alt="Human as a Service" title="Human as a Service">
+      <a href="http://localhost:8000">
+        <img src="http://localhost:8000/theme/img/profile.png" alt="Human as a Service" title="Human as a Service">
       </a>
-      <h1><a href="">Human as a Service</a></h1>
+      <h1><a href="http://localhost:8000">Human as a Service</a></h1>
 
-
+<p>Garett's blog</p>
 
       <ul class="social">
         <li><a class="sc-linkedin" href="https://www.linkedin.com/in/garettmd/" target="_blank"><i class="fa fa-linkedin"></i></a></li>
@@ -72,7 +72,7 @@
   <header>
     <h1 id="writing-a-dynamic-inventory-script-for-ansible">Writing a Dynamic Inventory Script for Ansible</h1>
     <p>
-          Posted on Tue 09 May 2017 in <a href="/category/automation.html">automation</a>
+          Posted on Tue 09 May 2017 in <a href="http://localhost:8000/category/automation.html">automation</a>
 
 
     </p>
@@ -106,7 +106,7 @@
 <p>But what if your hostnames or IPs are more ephemeral? Maybe this morning you'd have <code>webserv01</code>-<code>webserv05</code> but this afternoon you might have <code>webserv09</code>-<code>webserv13</code> or some other random combination. You might have some method of gathering the host information, then you could update the hosts file manually or even have some script that does it. But if your hosts are changing all the time, why even worry about keeping a static file updated? Isn't there some way to just tell Ansible at runtime what hosts to act on?</p>
 <p>Well yes there is.</p>
 <p>Ansible allows you to pass a script as a parameter to the inventory flag (<code>-i</code>) when running the <code>ansible-playbook</code> command. This means you could run</p>
-<div class="highlight"><pre><span></span><span class="n">ansible</span><span class="o">-</span><span class="n">playbook</span> <span class="n">playbooks</span><span class="o">/</span><span class="n">build_everything</span><span class="o">.</span><span class="n">yml</span> <span class="o">-</span><span class="n">i</span> <span class="n">my_inventory_script</span><span class="o">.</span><span class="n">py</span>
+<div class="highlight"><pre><span></span>ansible-playbook playbooks/build_everything.yml -i my_inventory_script.py
 </pre></div>
 
 
@@ -181,8 +181,8 @@
   </div>
   <div class="tag-cloud">
     <p>
-      <a href="/tag/ansible.html">ansible</a>
-      <a href="/tag/idrac.html">idrac</a>
+      <a href="http://localhost:8000/tag/ansible.html">ansible</a>
+      <a href="http://localhost:8000/tag/idrac.html">idrac</a>
     </p>
   </div>
 
@@ -218,8 +218,8 @@
 {
   "@context" : "http://schema.org",
   "@type" : "Blog",
-  "name": " garettmd ",
-  "url" : "",
+  "name": " garettmd.com ",
+  "url" : "http://localhost:8000",
   "image": "",
   "description": ""
 }

@@ -4,12 +4,12 @@
 <head>
   <link href='//fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,700,400italic' rel='stylesheet' type='text/css'>
 
-    <link rel="stylesheet" type="text/css" href="/theme/stylesheet/style.min.css">
+    <link rel="stylesheet" type="text/css" href="http://localhost:8000/theme/stylesheet/style.min.css">
 
-  <link rel="stylesheet" type="text/css" href="/theme/pygments/monokai.min.css">
-  <link rel="stylesheet" type="text/css" href="/theme/font-awesome/css/font-awesome.min.css">
+  <link rel="stylesheet" type="text/css" href="http://localhost:8000/theme/pygments/monokai.min.css">
+  <link rel="stylesheet" type="text/css" href="http://localhost:8000/theme/font-awesome/css/font-awesome.min.css">
 
-    <link href="/static/custom.css" rel="stylesheet">
+    <link href="http://localhost:8000/static/custom.css" rel="stylesheet">
 
 
 
@@ -31,30 +31,30 @@
 <meta name="author" content="Garett" />
 <meta name="description" content="Now that you're more acquainted with writing Heat templates, you might be wondering if there's a way to make writing them easier. YAML is easy to use as a template language, but as you start to write longer and more complex templates (especially if you use Flame) you might be …" />
 <meta name="keywords" content="">
-<meta property="og:site_name" content="garettmd"/>
+<meta property="og:site_name" content="garettmd.com"/>
 <meta property="og:title" content="Editing Heat Templates in Atom"/>
 <meta property="og:description" content="Now that you're more acquainted with writing Heat templates, you might be wondering if there's a way to make writing them easier. YAML is easy to use as a template language, but as you start to write longer and more complex templates (especially if you use Flame) you might be …"/>
 <meta property="og:locale" content="en_US"/>
-<meta property="og:url" content="/editing-heat-templates-in-atom.html"/>
+<meta property="og:url" content="http://localhost:8000/editing-heat-templates-in-atom.html"/>
 <meta property="og:type" content="article"/>
 <meta property="article:published_time" content="2016-08-18 00:00:00-04:00"/>
 <meta property="article:modified_time" content=""/>
-<meta property="article:author" content="/author/garett.html">
-<meta property="article:section" content="misc"/>
+<meta property="article:author" content="http://localhost:8000/author/garett.html">
+<meta property="article:section" content="articles"/>
 <meta property="og:image" content="">
 
-  <title>garettmd &ndash; Editing Heat Templates in Atom</title>
+  <title>garettmd.com &ndash; Editing Heat Templates in Atom</title>
 
 </head>
 <body>
   <aside>
     <div>
-      <a href="">
-        <img src="/theme/img/profile.png" alt="Human as a Service" title="Human as a Service">
+      <a href="http://localhost:8000">
+        <img src="http://localhost:8000/theme/img/profile.png" alt="Human as a Service" title="Human as a Service">
       </a>
-      <h1><a href="">Human as a Service</a></h1>
+      <h1><a href="http://localhost:8000">Human as a Service</a></h1>
 
-
+<p>Garett's blog</p>
 
       <ul class="social">
         <li><a class="sc-linkedin" href="https://www.linkedin.com/in/garettmd/" target="_blank"><i class="fa fa-linkedin"></i></a></li>
@@ -70,7 +70,7 @@
   <header>
     <h1 id="editing-heat-templates-in-atom">Editing Heat Templates in Atom</h1>
     <p>
-          Posted on Thu 18 August 2016 in <a href="/category/misc.html">misc</a>
+          Posted on Thu 18 August 2016 in <a href="http://localhost:8000/category/articles.html">articles</a>
 
 
     </p>
@@ -116,12 +116,12 @@
 <p>Click on the text that says "# Issue" and a little box will pop up giving you a clue as to what is wrong.</p>
 <p><img alt="tell me what's wrong baby" src="http://image.prntscr.com/image/71ebfaf4b15644d2bedf7752b7375988.png"></p>
 <p>What does that mean? Well, thanks to syntax highlighting, if we look at the text above, we can see that pattern of colors is broken up by that plain, boring grey color. This should give you a clue as to what's wrong. A lot of YAML consists of defining parameters in a <code>key: value</code> layout. What we're missing on the line above is a colon! Add that colon, then wait a second to see if the linter finds anything else. You'll find that as you correct one issue, the linter might find another. Just as in real life, it might feel like you're going down a rabbit-hole of your own mistakes, but don't worry, it's just a YAML file. No one will judge you for it (unless you go ahead and run your Heat template knowing that there are errors in it, then your boss might be upset). Just keep correcting errors until you're not seeing anymore errors. And then to be safe, you can do a dry-run:</p>
-<div class="highlight"><pre><span></span><span class="n">heat</span> <span class="n">stack</span><span class="o">-</span><span class="n">preview</span> <span class="o">-</span><span class="n">f</span> <span class="n">anything</span><span class="o">.</span><span class="n">yaml</span> <span class="n">newstack</span>
+<div class="highlight"><pre><span></span>heat stack-preview -f anything.yaml newstack
 </pre></div>
 
 
 <p>Or if you're using the new unified command line tool (Oslo):</p>
-<div class="highlight"><pre><span></span><span class="n">openstack</span> <span class="n">stack</span> <span class="n">create</span> <span class="o">-</span><span class="n">t</span> <span class="n">anything</span><span class="o">.</span><span class="n">yaml</span> <span class="o">--</span><span class="n">dry</span><span class="o">-</span><span class="n">run</span> <span class="n">newstack</span>
+<div class="highlight"><pre><span></span>openstack stack create -t anything.yaml --dry-run newstack
 </pre></div>
 
 
@@ -165,8 +165,8 @@
 {
   "@context" : "http://schema.org",
   "@type" : "Blog",
-  "name": " garettmd ",
-  "url" : "",
+  "name": " garettmd.com ",
+  "url" : "http://localhost:8000",
   "image": "",
   "description": ""
 }
