@@ -9,6 +9,7 @@
   <link rel="stylesheet" type="text/css" href="/theme/pygments/monokai.min.css">
   <link rel="stylesheet" type="text/css" href="/theme/font-awesome/css/font-awesome.min.css">
 
+    <link href="/static/custom.css" rel="stylesheet">
 
 
 
@@ -83,7 +84,7 @@
 <p>First, connect your computer to an R630 via ethernet. Then set your IP address on that interface to 192.168.0.121 (any IP address in that /24 subnet should work; actually any address at all might...). Next, confirm you can connect to the R630 by pinging 192.168.0.120. If that works, move on to ssh.</p>
 <h3>SSH</h3>
 <p>Because we're going to be connecting to multiple servers with the same address, we want to ignore ssh-key checking and keep ssh from adding the server and its public key to our known hosts file. To do this, use the following ssh options:</p>
-<div class="highlight"><pre><span></span><span class="n">ssh</span> <span class="o">-</span><span class="n">o</span> <span class="n">StrictHostKeyChecking</span><span class="o">=</span><span class="n">no</span> <span class="o">-</span><span class="n">o</span> <span class="n">UserKnownHostsFile</span><span class="o">=</span><span class="n">dev</span><span class="o">/</span><span class="n">null</span> <span class="o">-</span><span class="n">o</span> <span class="n">LogLevel</span><span class="o">=</span><span class="n">QUIET</span>
+<div class="highlight"><pre><span></span>ssh -o <span class="nv">StrictHostKeyChecking</span><span class="o">=</span>no -o <span class="nv">UserKnownHostsFile</span><span class="o">=</span>dev/null -o <span class="nv">LogLevel</span><span class="o">=</span>QUIET
 </pre></div>
 
 
@@ -101,27 +102,27 @@
 <p>Now we're cooking with gas!</p>
 <h3>Scripts</h3>
 <p>We're going to attempt to make our scripts modular, that way base ssh and racadm logic that isn't going to change will stay in one shell script, and the actual racadm commands that will vary depending on what operation we want will stay in their own scripts. So our directory structure will look something like this:</p>
-<div class="highlight"><pre><span></span><span class="n">idrac</span><span class="o">.</span><span class="n">sh</span>
-<span class="n">idrac_config</span><span class="o">.</span><span class="n">sh</span>
-<span class="n">idrac_config_bigswitch</span><span class="o">.</span><span class="n">sh</span>
-<span class="n">idrac_config_nostorage</span><span class="o">.</span><span class="n">sh</span>
-<span class="n">idrac_enable_pxe</span><span class="o">.</span><span class="n">sh</span>
-<span class="n">idrac_get_ips</span><span class="o">.</span><span class="n">sh</span>
+<div class="highlight"><pre><span></span>idrac.sh
+idrac_config.sh
+idrac_config_bigswitch.sh
+idrac_config_nostorage.sh
+idrac_enable_pxe.sh
+idrac_get_ips.sh
 </pre></div>
 
 
 <p>That top <code>idrac.sh</code> file is the main one, which all other scripts will call. And it looks like this</p>
 <div class="highlight"><pre><span></span><span class="ch">#!/bin/bash</span>
 
-<span class="n">USER</span><span class="o">=</span><span class="n">root</span>
-<span class="k">pass</span><span class="o">=</span><span class="err">$</span><span class="mi">1</span>
-<span class="n">server</span><span class="o">=</span><span class="err">$</span><span class="mi">2</span>
-<span class="n">shift</span>
-<span class="n">shift</span>
-<span class="n">cmd</span><span class="o">=</span><span class="err">$</span><span class="o">*</span>
+<span class="nv">USER</span><span class="o">=</span>root
+<span class="nv">pass</span><span class="o">=</span><span class="nv">$1</span>
+<span class="nv">server</span><span class="o">=</span><span class="nv">$2</span>
+<span class="nb">shift</span>
+<span class="nb">shift</span>
+<span class="nv">cmd</span><span class="o">=</span><span class="nv">$*</span>
 
-<span class="n">echo</span> <span class="s2">&quot;$cmd&quot;</span>
-<span class="n">sshpass</span> <span class="o">-</span><span class="n">p</span> <span class="s2">&quot;${pass}&quot;</span> <span class="n">ssh</span> <span class="o">-</span><span class="n">o</span> <span class="n">StrictHostKeyChecking</span><span class="o">=</span><span class="n">no</span> <span class="o">-</span><span class="n">o</span> <span class="n">UserKnownHostsFile</span><span class="o">=</span><span class="n">dev</span><span class="o">/</span><span class="n">null</span> <span class="o">-</span><span class="n">o</span> <span class="n">LogLevel</span><span class="o">=</span><span class="n">QUIET</span> <span class="err">$</span><span class="p">{</span><span class="n">USER</span><span class="p">}</span><span class="err">@</span><span class="s2">&quot;${server}&quot;</span> <span class="n">racadm</span> <span class="s2">&quot;${cmd}&quot;</span>
+<span class="nb">echo</span> <span class="s2">&quot;</span><span class="nv">$cmd</span><span class="s2">&quot;</span>
+sshpass -p <span class="s2">&quot;</span><span class="si">${</span><span class="nv">pass</span><span class="si">}</span><span class="s2">&quot;</span> ssh -o <span class="nv">StrictHostKeyChecking</span><span class="o">=</span>no -o <span class="nv">UserKnownHostsFile</span><span class="o">=</span>dev/null -o <span class="nv">LogLevel</span><span class="o">=</span>QUIET <span class="si">${</span><span class="nv">USER</span><span class="si">}</span>@<span class="s2">&quot;</span><span class="si">${</span><span class="nv">server</span><span class="si">}</span><span class="s2">&quot;</span> racadm <span class="s2">&quot;</span><span class="si">${</span><span class="nv">cmd</span><span class="si">}</span><span class="s2">&quot;</span>
 </pre></div>
 
 
@@ -189,10 +190,23 @@
 
 
 
+<div id="disqus_thread"></div>
+<script type="text/javascript">
+    var disqus_shortname = 'garettmd';
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+</script>
+<noscript>
+        Please enable JavaScript to view comments.
+
+</noscript>
 </article>
 
     <footer>
-<p>&copy; garettmd </p>
+<p>&copy; garettmd 2017</p>
 <p>    Powered by <a href="http://getpelican.com" target="_blank">Pelican</a> - <a href="https://github.com/alexandrevicenzi/flex" target="_blank">Flex</a> theme by <a href="http://alexandrevicenzi.com" target="_blank">Alexandre Vicenzi</a>
 </p>    </footer>
   </main>
