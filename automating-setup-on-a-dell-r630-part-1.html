@@ -84,30 +84,30 @@
 <p>First, connect your computer to an R630 via ethernet. Then set your IP address on that interface to 192.168.0.121 (any IP address in that /24 subnet should work; actually any address at all might...). Next, confirm you can connect to the R630 by pinging 192.168.0.120. If that works, move on to ssh.</p>
 <h3>SSH</h3>
 <p>Because we're going to be connecting to multiple servers with the same address, we want to ignore ssh-key checking and keep ssh from adding the server and its public key to our known hosts file. To do this, use the following ssh options:</p>
-<div class="highlight"><pre><span></span>ssh -o <span class="nv">StrictHostKeyChecking</span><span class="o">=</span>no -o <span class="nv">UserKnownHostsFile</span><span class="o">=</span>dev/null -o <span class="nv">LogLevel</span><span class="o">=</span>QUIET
+<div class="highlight"><pre><span></span>ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=dev/null -o LogLevel=QUIET
 </pre></div>
 
 
 <p>This will let it just connect to the server, security be damned! If you have any man-in-the-middle attacks between you and a server you're directly connected to and sitting in front of, ssh key checking is the least of your worries.</p>
 <p>To keep from having to enter a password for each connection made to iDRAC, use <code>sshpass</code>. For a Mac, install it using Homebrew. If you're not using Homebrew, start using it. <code>sshpass</code> is considered by many to be bad from a security perspective, so it's not included with Homebrew by default. But you can install it from Sourceforge (yes, I know, I know. But it is legit) using the the command:</p>
-<div class="highlight"><pre><span></span><span class="n">brew</span> <span class="n">install</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">raw</span><span class="o">.</span><span class="n">githubusercontent</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">kadwanev</span><span class="o">/</span><span class="n">bigboybrew</span><span class="o">/</span><span class="n">master</span><span class="o">/</span><span class="n">Library</span><span class="o">/</span><span class="n">Formula</span><span class="o">/</span><span class="n">sshpass</span><span class="o">.</span><span class="n">rb</span>
+<div class="highlight"><pre><span></span>brew install https://raw.githubusercontent.com/kadwanev/bigboybrew/master/Library/Formula/sshpass.rb
 </pre></div>
 
 
 <p>After doing that, just add <code>sshpass -p &lt;your password&gt;</code> in front of the ssh command, and you will be that much closer to automation heaven.</p>
-<div class="highlight"><pre><span></span><span class="n">sshpass</span> <span class="o">-</span><span class="n">p</span> <span class="n">password</span> <span class="n">ssh</span> <span class="o">-</span><span class="n">o</span> <span class="n">StrictHostKeyChecking</span><span class="o">=</span><span class="n">no</span> <span class="o">-</span><span class="n">o</span> <span class="n">UserKnownHostsFile</span><span class="o">=</span><span class="n">dev</span><span class="o">/</span><span class="n">null</span> <span class="o">-</span><span class="n">o</span> <span class="n">LogLevel</span><span class="o">=</span><span class="n">QUIET</span>
+<div class="highlight"><pre><span></span>sshpass -p password ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=dev/null -o LogLevel=QUIET
 </pre></div>
 
 
 <p>Now we're cooking with gas!</p>
 <h3>Scripts</h3>
 <p>We're going to attempt to make our scripts modular, that way base ssh and racadm logic that isn't going to change will stay in one shell script, and the actual racadm commands that will vary depending on what operation we want will stay in their own scripts. So our directory structure will look something like this:</p>
-<div class="highlight"><pre><span></span><span class="n">idrac</span><span class="o">.</span><span class="n">sh</span>
-<span class="n">idrac_config</span><span class="o">.</span><span class="n">sh</span>
-<span class="n">idrac_config_bigswitch</span><span class="o">.</span><span class="n">sh</span>
-<span class="n">idrac_config_nostorage</span><span class="o">.</span><span class="n">sh</span>
-<span class="n">idrac_enable_pxe</span><span class="o">.</span><span class="n">sh</span>
-<span class="n">idrac_get_ips</span><span class="o">.</span><span class="n">sh</span>
+<div class="highlight"><pre><span></span>idrac.sh
+idrac_config.sh
+idrac_config_bigswitch.sh
+idrac_config_nostorage.sh
+idrac_enable_pxe.sh
+idrac_get_ips.sh
 </pre></div>
 
 
