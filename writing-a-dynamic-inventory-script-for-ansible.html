@@ -60,6 +60,8 @@
 
       <ul class="social">
         <li><a class="sc-linkedin" href="https://www.linkedin.com/in/garettmd/" target="_blank"><i class="fa fa-linkedin"></i></a></li>
+        <li><a class="sc-github" href="https://github.com/garettmd" target="_blank"><i class="fa fa-github"></i></a></li>
+        <li><a class="sc-get-pocket" href="https://getpocket.com/@garettmd" target="_blank"><i class="fa fa-get-pocket"></i></a></li>
       </ul>
     </div>
 
@@ -169,9 +171,12 @@
 <li>The first for loop cleans up the bash output, removing any extraneous characters that can show up, and adds those cleaned up elements to <code>server_list</code>.</li>
 <li>Then, remove any blank lines rom <code>server_list</code>.</li>
 <li>FInally, we can start building the list of hosts in the idrac group. We just iterate over the hosts in <code>server_list</code>, and append them to idrac hosts list in the <code>servers</code> dictionary.</li>
-<li>Next, there's some logic to determine if the script is being used to supply an inventory to Ansible or just reporting a count of all the idrac hosts with DHCP addresses:</li>
+<li>Next, there's some logic to determine if the script is being used to supply an inventory to Ansible or just reporting a count of all the idrac hosts with DHCP addresses:<ul>
 <li>If the <code>-c</code> flag was specified, which is saved as <code>True</code> for the boolean variable <code>count</code>, it will merely print out the result of finding the length of the idrac hosts list.</li>
 <li>If the command didn't use any flags, it will simply print out the servers dictionary. Ansible expects the JSON format, which fortunately in Python dictionaries are pretty much the same as JSON. But if you were using a different language, know that you'll need to format it into JSON somehow.</li>
+<li>I said that if no flags are specified the script will just print out the <code>servers</code> dictionary. This is partly true, in that Ansible actually will specify the argument <code>—list</code>. However it's not important to the actual logic of this script, it just needs to be an argument that argparse recognizes, otherwise it will error out.</li>
+</ul>
+</li>
 </ol>
 <p>And that's it for the script. You'd run it just like my example at the beginning of the post, along with any other arguments needed for your run. This is a simple example but but it allows you to not need to perform any steps like updating a hosts file before running your playbook. This could be really useful in other cases where you might be running a playbook based off a cron job or similar scheduler, as it could just pull in the inventory dynamically without any intervention. And lots of other times. Note that there are modules like this available for the major cloud providers like AWS, OpenStack, Zabbix, and others that would obviously be preferred if you're using those environments. But it can be really handy to know how to roll your own for your own use cases.</p>
 <h3>Go Forth and Ansible</h3>

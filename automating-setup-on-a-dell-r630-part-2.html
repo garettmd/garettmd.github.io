@@ -1,0 +1,287 @@
+
+<!DOCTYPE html>
+<html lang="en_us">
+<head>
+  <link href='//fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,700,400italic' rel='stylesheet' type='text/css'>
+
+    <link rel="stylesheet" type="text/css" href="http://garettmd.com/theme/stylesheet/style.min.css">
+
+  <link rel="stylesheet" type="text/css" href="http://garettmd.com/theme/pygments/monokai.min.css">
+  <link rel="stylesheet" type="text/css" href="http://garettmd.com/theme/font-awesome/css/font-awesome.min.css">
+
+    <link href="http://garettmd.com/static/custom.css" rel="stylesheet">
+
+
+
+
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="HandheldFriendly" content="True" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="" />
+
+    <!-- Chrome, Firefox OS and Opera -->
+    <meta name="theme-color" content="#333">
+    <!-- Windows Phone -->
+    <meta name="msapplication-navbutton-color" content="#333">
+    <!-- iOS Safari -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<meta name="author" content="Garett" />
+<meta name="description" content="In part 1, I showed how to automate iDRAC setup using bash scripts. Using those scripts is great and definitely is a huge improvement over doing it all by hand. However, there are some ways to improve the process. In my use, to configure a rack of about 22 R630s …" />
+<meta name="keywords" content="ansible, idrac, pi">
+<meta property="og:site_name" content="garettmd.com"/>
+<meta property="og:title" content="Automating Setup on a Dell R630, Part 2"/>
+<meta property="og:description" content="In part 1, I showed how to automate iDRAC setup using bash scripts. Using those scripts is great and definitely is a huge improvement over doing it all by hand. However, there are some ways to improve the process. In my use, to configure a rack of about 22 R630s …"/>
+<meta property="og:locale" content="en_US"/>
+<meta property="og:url" content="http://garettmd.com/automating-setup-on-a-dell-r630-part-2.html"/>
+<meta property="og:type" content="article"/>
+<meta property="article:published_time" content="2017-05-15 00:00:00-04:00"/>
+<meta property="article:modified_time" content=""/>
+<meta property="article:author" content="http://garettmd.com/author/garett.html">
+<meta property="article:section" content="articles"/>
+<meta property="article:tag" content="ansible"/>
+<meta property="article:tag" content="idrac"/>
+<meta property="article:tag" content="pi"/>
+<meta property="og:image" content="">
+
+  <title>garettmd.com &ndash; Automating Setup on a Dell R630, Part 2</title>
+
+</head>
+<body>
+  <aside>
+    <div>
+      <a href="http://garettmd.com">
+        <img src="http://garettmd.com/theme/img/profile.png" alt="Human as a Service" title="Human as a Service">
+      </a>
+      <h1><a href="http://garettmd.com">Human as a Service</a></h1>
+
+<p>Garett's blog</p>
+
+      <ul class="social">
+        <li><a class="sc-linkedin" href="https://www.linkedin.com/in/garettmd/" target="_blank"><i class="fa fa-linkedin"></i></a></li>
+        <li><a class="sc-github" href="https://github.com/garettmd" target="_blank"><i class="fa fa-github"></i></a></li>
+        <li><a class="sc-get-pocket" href="https://getpocket.com/@garettmd" target="_blank"><i class="fa fa-get-pocket"></i></a></li>
+      </ul>
+    </div>
+
+
+  </aside>
+  <main>
+
+
+<article class="single">
+  <header>
+    <h1 id="automating-setup-on-a-dell-r630-part-2">Automating Setup on a Dell R630, Part 2</h1>
+    <p>
+          Posted on Mon 15 May 2017 in <a href="http://garettmd.com/category/articles.html">articles</a>
+
+
+    </p>
+  </header>
+
+
+  <div>
+    <p>In part 1, I showed how to automate iDRAC setup using bash scripts. Using those scripts is great and definitely is a huge improvement over doing it all by hand. However, there are some ways to improve the process. In my use, to configure a rack of about 22 R630s, it took around 15 minutes. This is because each <code>racadm</code> command is being run one at a time, one server at a time. There are some tools to get ssh running in parallel, like pssh and GNU parallel, but those are kind of clunky and not easy to use. One tool that I've been getting into lately is called Ansible. It's similar to Chef and Puppet, but agentless and uses SSH for all of its communication. And critically for this purpose, it runs everything in parallel, which will speed up the rack configuration dramatically.</p>
+<h3>The Setup</h3>
+<p>First, we need to install Ansible. I'll be running this from, where else, a Raspberry Pi. Unfortunately, the Raspbian repo doesn't include the latest version of Ansible. <em>As of this writing</em>, it uses version 1.7, while the latest version is 2.3. So I have to grab Ansible's Ubuntu repo and add it to the sources list, then add the key for it so we don't get security warnings everytime we use <code>apt-get</code></p>
+<div class="highlight"><pre><span></span>sudo bash -c &#39;echo &quot;deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main&quot; &gt;&gt; /etc/apt/sources.list&#39;
+sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
+</pre></div>
+
+
+<p>Next we'll update our repo lists and install Ansible</p>
+<div class="highlight"><pre><span></span>sudo apt-get update
+sudo apt-get install -y ansible
+ansible --version
+</pre></div>
+
+
+<p>Make sure you get version 2.3 back, otherwise something went wrong. Now that Ansible is installed, we need to setup the directory structure for our project. Create a directory called <code>r630</code>, or whatever you want to call it. Now go in that directory and create a structure like this</p>
+<div class="highlight"><pre><span></span>mkdir group_vars playbooks
+touch ansible.cfg ssh_config hosts
+</pre></div>
+
+
+<p>This creates a playbooks directory, where we will put all our playbooks, and a group_vars directory, which we will use to house variables about different hosts, but most importantly where we will store the iDRAC password in encrypted form. Then we'll create an <code>ansible.cfg</code> file which will specify several parameters for how Ansible should run our playbooks. <code>ssh_config</code> will tell ssh to skip things like host checking (we'll be running on a closed network) and other settings that will speed up ssh connections. Finally, the hosts file is one method we will use to tell Ansible what hosts to actually run on.</p>
+<p>Now that we have a basic structure, let's fill out our <code>ansible.cfg</code> file</p>
+<div class="highlight"><pre><span></span><span class="k">[defaults]</span>
+<span class="na">host_key_checking</span> <span class="o">=</span> <span class="s">false</span>
+<span class="na">record_host_keys</span> <span class="o">=</span> <span class="s">false</span>
+<span class="na">timeout</span> <span class="o">=</span> <span class="s">30</span>
+<span class="na">inventory</span> <span class="o">=</span> <span class="s">hosts</span>
+<span class="na">log_path</span> <span class="o">=</span> <span class="s">~/playbook.log</span>
+<span class="na">forks</span> <span class="o">=</span> <span class="s">22</span>
+</pre></div>
+
+
+<p>Ansible always expects there to at least be a <code>[defaults]</code> configuration group. You can specify other groups that playbooks can run from, but we're only going to use one for now, so defaults will work. We'll turn off host key checking because we'll be hitting several different racks, and due to the nature of DHCP, it will probably assign the same IP to different hosts as we move from rack to rack, so we want to just ignore host key checking. We'll set a timeout, so that we're not waiting forever for an unreachable host, tell playbooks to use the <code>hosts</code> file we created by default, where to place the log file for our playbook runs, and how many ssh sessions can run at once. I was working with 22 R630s per rack in my case, so you could raise that number if you wanted, but keep any on resource usage on your Pi, and network usage in general.</p>
+<p>Next, let's fill out <code>ssh_config</code></p>
+<div class="highlight"><pre><span></span>Host *
+    GSSAPIAuthentication no
+    VerifyHostKeyDNS no
+    HashKnownHosts no
+    TCPKeepAlive yes
+    ServerAliveInterval 60
+</pre></div>
+
+
+<p>I'm not going to spend much time talking about these, but basically this is telling ssh itself not to check for host keys, to skip hitting DNS for hostnames, and other tweaks to speed up the connection process</p>
+<p>Now, let's fill out the hosts file. Really, this file is Ansible's <em>inventory</em>, but many folks will call this file <code>hosts</code> or some variation thereof, probably because it's similar to the <code>/etc/hosts</code> file on Linux systems. Though, rather than mapping hostnames to IP addresses, this maps hosts (be them IPs or names) to groups. This allows playbooks to only run on specific groups of hosts. You could have a webserver group, a database group, and a proxy group. You'd probably want to install some similar software on the webserver and proxy groups, so a playbook could install something like nginx on both of them, while a different playbook could install mysql on the database group. A plabyook can run against one group, some groups, all groups, or even just individual hosts that are outside of groups. Here's a basic we can use for iDRAC</p>
+<div class="highlight"><pre><span></span><span class="k">[base]</span>
+<span class="err">192.168.1.100</span>
+<span class="err">192.168.1.101</span>
+<span class="err">192.168.1.102</span>
+<span class="err">192.168.1.103</span>
+<span class="err">192.168.1.104</span>
+<span class="err">192.168.1.105</span>
+<span class="err">192.168.1.106</span>
+
+<span class="k">[bigswitch]</span>
+<span class="err">192.168.1.109</span>
+<span class="err">192.168.1.110</span>
+
+<span class="k">[local]</span>
+<span class="err">127.0.0.1</span>
+</pre></div>
+
+
+<p>We have our settings configured, now let's actually work on a playbook. Here's my iDRAC config for any base system</p>
+<div class="highlight"><pre><span></span><span class="nn">---</span> <span class="c1"># Base iDRAC config for most r630s</span>
+<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">gather_facts</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">false</span>
+  <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">base idrac config</span>
+  <span class="l l-Scalar l-Scalar-Plain">hosts</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">idrac</span>
+  <span class="l l-Scalar l-Scalar-Plain">user</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">root</span>
+  <span class="l l-Scalar l-Scalar-Plain">tasks</span><span class="p p-Indicator">:</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">disable default password warning</span>
+      <span class="l l-Scalar l-Scalar-Plain">raw</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">racadm set idrac.tuning.DefaultCredentialWarning 0</span>
+
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">get service tag</span>
+      <span class="l l-Scalar l-Scalar-Plain">raw</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">racadm getsvctag</span>
+      <span class="l l-Scalar l-Scalar-Plain">register</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">debug</span><span class="p p-Indicator">:</span>
+        <span class="l l-Scalar l-Scalar-Plain">var</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
+
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">enable ipv6</span>
+      <span class="l l-Scalar l-Scalar-Plain">raw</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">racadm set iDRAC.IPv6.Enable 1</span>
+      <span class="l l-Scalar l-Scalar-Plain">register</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
+
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">set NIC to LOM3</span>
+      <span class="l l-Scalar l-Scalar-Plain">raw</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">racadm set iDRAC.NIC.Selection 4</span>
+      <span class="l l-Scalar l-Scalar-Plain">register</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
+
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">disable hot spare for PSUs</span>
+      <span class="l l-Scalar l-Scalar-Plain">raw</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">racadm set System.Power.Hotspare.Enable 0</span>
+      <span class="l l-Scalar l-Scalar-Plain">register</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
+
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">set power policy</span>
+      <span class="l l-Scalar l-Scalar-Plain">raw</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">racadm set System.Power.RedundancyPolicy 1</span>
+      <span class="l l-Scalar l-Scalar-Plain">register</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
+
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">get bios version</span>
+      <span class="l l-Scalar l-Scalar-Plain">raw</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">racadm getversion -f bios</span>
+      <span class="l l-Scalar l-Scalar-Plain">register</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">debug</span><span class="p p-Indicator">:</span>
+        <span class="l l-Scalar l-Scalar-Plain">var</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
+
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">get idrac version</span>
+      <span class="l l-Scalar l-Scalar-Plain">raw</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">racadm getversion -f idrac</span>
+      <span class="l l-Scalar l-Scalar-Plain">register</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
+
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">create linux_os vdisk</span>
+      <span class="l l-Scalar l-Scalar-Plain">raw</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">racadm storage createvd:RAID.Integrated.1-1 -rl r1 -pdkey:Disk.Bay.0:Enclosure.Internal.0-1:RAID.Integrated.1-1,Disk.Bay.1:Enclosure.Internal.0-1:RAID.Integrated.1-1 -name LINUX_OS</span>
+      <span class="l l-Scalar l-Scalar-Plain">register</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">create images vdisk</span>
+      <span class="l l-Scalar l-Scalar-Plain">raw</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">racadm storage createvd:RAID.Integrated.1-1 -rl r1 -pdkey:Disk.Bay.2:Enclosure.Internal.0-1:RAID.Integrated.1-1,Disk.Bay.3:Enclosure.Internal.0-1:RAID.Integrated.1-1 -name IMAGES</span>
+      <span class="l l-Scalar l-Scalar-Plain">register</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">apply new disks</span>
+      <span class="l l-Scalar l-Scalar-Plain">raw</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">racadm jobqueue create RAID.Integrated.1-1 -s TIME_NOW --realtime</span>
+      <span class="l l-Scalar l-Scalar-Plain">register</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
+    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">debug</span><span class="p p-Indicator">:</span>
+        <span class="l l-Scalar l-Scalar-Plain">var</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
+</pre></div>
+
+
+<p>I won't spend time talking about the various iDRAC commands, but just note you just list out the actual racadm commands that you normally would via ssh or on the console. Unfortunately, there's not an iDRAC Ansible module at this time, but using the <code>raw</code> module to send raw ssh commands still works fine.  Another thing to note is that I'm registering the results of some of the commmands as variables, then printing them out on the screen (as well as via the playbook log). <code>register</code> is what stores the results of an action to a variable, and <code>debug</code> is what spits it out on screen. I'm working on writing the results to a log file with the <code>blockinfile</code> module, but haven't finished it yet; expect another post when that's done.</p>
+<p>One last thing is we need to setup our encrypted group variables. We already created a <code>group_vars</code> directory, so now we'll create a <code>vars</code> and a <code>vault</code> directory.</p>
+<div class="highlight"><pre><span></span>cd group_vars
+touch vars vault
+</pre></div>
+
+
+<p>The way this will work, is we will use the <code>ansible_ssh_pass</code> builtin variable to tell Ansible the password to use when logging in to iDRAC. We'll store this variable in the <code>vars</code> file. But rather than actually specifying the password there in an unencrypted file, it will reference <code>vault_ansible_ssh_pass</code> which actually be in the encrypted <code>vault</code> file.</p>
+<div class="highlight"><pre><span></span>$ cat vars
+---
+<span class="nv">ansible_ssh_pass</span> <span class="o">=</span> <span class="s2">&quot;{{ vault_ansible_ssh_pass }}&quot;</span>
+
+$ ansible-vault view vault
+Vault password:
+vault_ansible_ssh_pass: calvin
+</pre></div>
+
+
+<p>This setup allows you to store all your variables in the <code>vars</code> file, while keeping the actual contents of sensitive variables safe in the encrypted <code>vault</code> file. To create the vault file, use </p>
+<div class="highlight"><pre><span></span>ansible-vault create vault
+</pre></div>
+
+
+<p>Now, tying all this together, there is one command to run the playbook</p>
+<div class="highlight"><pre><span></span>ansible-playbook playbooks/base_config.yml --ask-vault-pass
+</pre></div>
+
+
+<p>And that's it. What used to take around 10-15 minutes using bash scripts, now takes 1 and a half minutes using Ansible.</p>
+<h3>More Reading</h3>
+<ul>
+<li>Ansible Vault - <a href="https://www.digitalocean.com/community/tutorials/how-to-use-vault-to-protect-sensitive-ansible-data-on-ubuntu-16-04">Digital Ocean: How to Use Vault to Protect Sensitive Ansible Data on Ubuntu 16.04</a></li>
+</ul>
+  </div>
+  <div class="tag-cloud">
+    <p>
+      <a href="http://garettmd.com/tag/ansible.html">ansible</a>
+      <a href="http://garettmd.com/tag/idrac.html">idrac</a>
+      <a href="http://garettmd.com/tag/pi.html">pi</a>
+    </p>
+  </div>
+
+
+
+
+<div id="disqus_thread"></div>
+<script type="text/javascript">
+    var disqus_shortname = 'garettmd';
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+</script>
+<noscript>
+        Please enable JavaScript to view comments.
+
+</noscript>
+</article>
+
+    <footer>
+<p>&copy; garettmd 2017</p>
+<p>    Powered by <a href="http://getpelican.com" target="_blank">Pelican</a> - <a href="https://github.com/alexandrevicenzi/flex" target="_blank">Flex</a> theme by <a href="http://alexandrevicenzi.com" target="_blank">Alexandre Vicenzi</a>
+</p>    </footer>
+  </main>
+
+
+
+
+
+<script type="application/ld+json">
+{
+  "@context" : "http://schema.org",
+  "@type" : "Blog",
+  "name": " garettmd.com ",
+  "url" : "http://garettmd.com",
+  "image": "",
+  "description": ""
+}
+</script>
+</body>
+</html>

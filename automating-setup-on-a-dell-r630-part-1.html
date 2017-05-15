@@ -30,7 +30,7 @@
 
 <meta name="author" content="Garett" />
 <meta name="description" content="Recently I was setting up a new server rack with several Dell R630s. The out-of-band management tool for Dell devices is called iDRAC. It works fine for most cases, I suppose. You can configure iDRAC and other BIOS settings over ssh allowing you to script out your work which is …" />
-<meta name="keywords" content="">
+<meta name="keywords" content="bash, idrac">
 <meta property="og:site_name" content="garettmd.com"/>
 <meta property="og:title" content="Automating Setup on a Dell R630, Part 1"/>
 <meta property="og:description" content="Recently I was setting up a new server rack with several Dell R630s. The out-of-band management tool for Dell devices is called iDRAC. It works fine for most cases, I suppose. You can configure iDRAC and other BIOS settings over ssh allowing you to script out your work which is …"/>
@@ -41,6 +41,8 @@
 <meta property="article:modified_time" content=""/>
 <meta property="article:author" content="http://garettmd.com/author/garett.html">
 <meta property="article:section" content="articles"/>
+<meta property="article:tag" content="bash"/>
+<meta property="article:tag" content="idrac"/>
 <meta property="og:image" content="">
 
   <title>garettmd.com &ndash; Automating Setup on a Dell R630, Part 1</title>
@@ -58,6 +60,8 @@
 
       <ul class="social">
         <li><a class="sc-linkedin" href="https://www.linkedin.com/in/garettmd/" target="_blank"><i class="fa fa-linkedin"></i></a></li>
+        <li><a class="sc-github" href="https://github.com/garettmd" target="_blank"><i class="fa fa-github"></i></a></li>
+        <li><a class="sc-get-pocket" href="https://getpocket.com/@garettmd" target="_blank"><i class="fa fa-get-pocket"></i></a></li>
       </ul>
     </div>
 
@@ -167,6 +171,7 @@ sshpass -p <span class="s2">&quot;</span><span class="si">${</span><span class="
     <span class="nv">$RACADM</span> <span class="s2">&quot;</span><span class="nv">$pass</span><span class="s2">&quot;</span> <span class="s2">&quot;</span><span class="nv">$server</span><span class="s2">&quot;</span> <span class="s2">&quot;get iDRAC.NIC.MACAddress&quot;</span> &gt;&gt; <span class="s2">&quot;</span><span class="nv">$LOGFILE</span><span class="s2">&quot;</span>
     <span class="c1"># create virtual drive for OS install</span>
     <span class="nv">$RACADM</span> <span class="s2">&quot;</span><span class="nv">$pass</span><span class="s2">&quot;</span> <span class="s2">&quot;</span><span class="nv">$server</span><span class="s2">&quot;</span> <span class="s2">&quot;storage createvd:RAID.Integrated.1-1 -rl r1 -pdkey:Disk.Bay.0:Enclosure.Internal.0-1:RAID.Integrated.1-1,Disk.Bay.1:Enclosure.Internal.0-1:RAID.Integrated.1-1 -name LINUX_OS&quot;</span> &gt;&gt; <span class="s2">&quot;</span><span class="nv">$LOGFILE</span><span class="s2">&quot;</span>
+    <span class="c1"># create virtual drive for images</span>
     <span class="nv">$RACADM</span> <span class="s2">&quot;</span><span class="nv">$pass</span><span class="s2">&quot;</span> <span class="s2">&quot;</span><span class="nv">$server</span><span class="s2">&quot;</span> <span class="s2">&quot;storage createvd:RAID.Integrated.1-1 -rl r1 -pdkey:Disk.Bay.2:Enclosure.Internal.0-1:RAID.Integrated.1-1,Disk.Bay.3:Enclosure.Internal.0-1:RAID.Integrated.1-1 -name IMAGES&quot;</span> &gt;&gt; <span class="s2">&quot;</span><span class="nv">$LOGFILE</span><span class="s2">&quot;</span>
     <span class="c1"># actually create it here</span>
     <span class="nv">$RACADM</span> <span class="s2">&quot;</span><span class="nv">$pass</span><span class="s2">&quot;</span> <span class="s2">&quot;</span><span class="nv">$server</span><span class="s2">&quot;</span> <span class="s2">&quot;jobqueue create RAID.Integrated.1-1 -s TIME_NOW --realtime&quot;</span> &gt;&gt; <span class="s2">&quot;</span><span class="nv">$LOGFILE</span><span class="s2">&quot;</span>
@@ -184,6 +189,8 @@ sshpass -p <span class="s2">&quot;</span><span class="si">${</span><span class="
   </div>
   <div class="tag-cloud">
     <p>
+      <a href="http://garettmd.com/tag/bash.html">bash</a>
+      <a href="http://garettmd.com/tag/idrac.html">idrac</a>
     </p>
   </div>
 

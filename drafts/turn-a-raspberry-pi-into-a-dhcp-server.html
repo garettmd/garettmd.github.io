@@ -58,6 +58,8 @@
 
       <ul class="social">
         <li><a class="sc-linkedin" href="https://www.linkedin.com/in/garettmd/" target="_blank"><i class="fa fa-linkedin"></i></a></li>
+        <li><a class="sc-github" href="https://github.com/garettmd" target="_blank"><i class="fa fa-github"></i></a></li>
+        <li><a class="sc-get-pocket" href="https://getpocket.com/@garettmd" target="_blank"><i class="fa fa-get-pocket"></i></a></li>
       </ul>
     </div>
 
@@ -78,7 +80,24 @@
 
 
   <div>
-    <p>Recently I had a need for a DHCP server to speed up the configuration of a server rack. I had a rack with 12 Dell R630s, some Gigamon devices, and a few other pieces of hardware. The bulk of the work needed was on the R630s, mostly issuing <code>racadm</code> commands over ssh (see [my post on that](http://garettmd.com/automating-setup-on-a-dell-r630-part-1.html#automating-setup-on-a-dell-r630-part-1. The issue with </p>
+    <p>Recently I had a need for a DHCP server to speed up the configuration of a server rack. I had a rack with 12 Dell R630s, some Gigamon devices, and a few other pieces of hardware. The bulk of the work needed was on the R630s, mostly issuing <code>racadm</code> commands over ssh (see <a href="http://garettmd.com/automating-setup-on-a-dell-r630-part-1.html#automating-setup-on-a-dell-r630-part-1">my post on that</a>). This is easy to do with DHCP, since you can assign all the servers in a rack an IP address, then hit all those IPs with the ssh commands. However, I was working in a lab environment where we didn't have access to the wider network, so I had to bring my own DHCP server. So of course I decided to use a Pi!</p>
+<h3>The Setup</h3>
+<p>I'm just setting up DHCP for a small "network" within a single server rack, so I just need a simple, lightweight DHCP software. <a href="http://www.thekelleys.org.uk/dnsmasq/doc.html">dnsmasq</a> fit the bill. It's lightweight and easy to configure, and included in the Raspbian repository. First, install dnsmasq</p>
+<div class="highlight"><pre><span></span>sudo apt-get install dnsmasq
+</pre></div>
+
+
+<p>Next, you'll want to configure DHCP. This is done via dnsmasq's conf file, which by deafult is located at <code>/etc/dnsmasq.conf</code>. To get up and running with DHCP, it only takes one line:</p>
+<div class="highlight"><pre><span></span>dhcp-range=eth0,192.168.1.100,192.168.1.195,255.255.255.0,6h
+</pre></div>
+
+
+<p>This tells the Pi to <em>only</em> offer DHCP over the ethernet port, assign IPs in the range of 192.168.1.100-195, and to retain leases for 6 hours per host. After that, cycle the dnsmasq service, and you have yourself and quick and cheap DHCP server</p>
+<div class="highlight"><pre><span></span>sudo service dnsmasq restart
+</pre></div>
+
+
+<p>Another thing I also did with this was to setup PXE booting, which can be done with dnsmasq as well. A post with that info will be coming soon...</p>
   </div>
   <div class="tag-cloud">
     <p>
