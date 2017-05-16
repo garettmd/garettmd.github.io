@@ -1,0 +1,456 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>garettmd.com - articles</title><link href="/" rel="alternate"></link><link href="/feeds/articles.atom.xml" rel="self"></link><id>/</id><updated>2017-05-15T00:00:00-04:00</updated><entry><title>Automating Setup on a Dell R630, Part 2</title><link href="/automating-setup-on-a-dell-r630-part-2.html" rel="alternate"></link><published>2017-05-15T00:00:00-04:00</published><updated>2017-05-15T00:00:00-04:00</updated><author><name>Garett</name></author><id>tag:None,2017-05-15:/automating-setup-on-a-dell-r630-part-2.html</id><summary type="html">&lt;p&gt;In part 1, I showed how to automate iDRAC setup using bash scripts. Using those scripts is great and definitely is a huge improvement over doing it all by hand. However, there are some ways to improve the process. In my use, to configure a rack of about 22 R630s …&lt;/p&gt;</summary><content type="html">&lt;p&gt;In part 1, I showed how to automate iDRAC setup using bash scripts. Using those scripts is great and definitely is a huge improvement over doing it all by hand. However, there are some ways to improve the process. In my use, to configure a rack of about 22 R630s, it took around 15 minutes. This is because each &lt;code&gt;racadm&lt;/code&gt; command is being run one at a time, one server at a time. There are some tools to get ssh running in parallel, like pssh and GNU parallel, but those are kind of clunky and not easy to use. One tool that I've been getting into lately is called Ansible. It's similar to Chef and Puppet, but agentless and uses SSH for all of its communication. And critically for this purpose, it runs everything in parallel, which will speed up the rack configuration dramatically.&lt;/p&gt;
+&lt;h3&gt;The Setup&lt;/h3&gt;
+&lt;p&gt;First, we need to install Ansible. I'll be running this from, where else, a Raspberry Pi. Unfortunately, the Raspbian repo doesn't include the latest version of Ansible. &lt;em&gt;As of this writing&lt;/em&gt;, it uses version 1.7, while the latest version is 2.3. So I have to grab Ansible's Ubuntu repo and add it to the sources list, then add the key for it so we don't get security warnings everytime we use &lt;code&gt;apt-get&lt;/code&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;sudo bash -c &amp;#39;echo &amp;quot;deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main&amp;quot; &amp;gt;&amp;gt; /etc/apt/sources.list&amp;#39;
+sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Next we'll update our repo lists and install Ansible&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;sudo apt-get update
+sudo apt-get install -y ansible
+ansible --version
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Make sure you get version 2.3 back, otherwise something went wrong. Now that Ansible is installed, we need to setup the directory structure for our project. Create a directory called &lt;code&gt;r630&lt;/code&gt;, or whatever you want to call it. Now go in that directory and create a structure like this&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;mkdir group_vars playbooks
+touch ansible.cfg ssh_config hosts
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This creates a playbooks directory, where we will put all our playbooks, and a group_vars directory, which we will use to house variables about different hosts, but most importantly where we will store the iDRAC password in encrypted form. Then we'll create an &lt;code&gt;ansible.cfg&lt;/code&gt; file which will specify several parameters for how Ansible should run our playbooks. &lt;code&gt;ssh_config&lt;/code&gt; will tell ssh to skip things like host checking (we'll be running on a closed network) and other settings that will speed up ssh connections. Finally, the hosts file is one method we will use to tell Ansible what hosts to actually run on.&lt;/p&gt;
+&lt;p&gt;Now that we have a basic structure, let's fill out our &lt;code&gt;ansible.cfg&lt;/code&gt; file&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="k"&gt;[defaults]&lt;/span&gt;
+&lt;span class="na"&gt;host_key_checking&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s"&gt;false&lt;/span&gt;
+&lt;span class="na"&gt;record_host_keys&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s"&gt;false&lt;/span&gt;
+&lt;span class="na"&gt;timeout&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s"&gt;30&lt;/span&gt;
+&lt;span class="na"&gt;inventory&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s"&gt;hosts&lt;/span&gt;
+&lt;span class="na"&gt;log_path&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s"&gt;~/playbook.log&lt;/span&gt;
+&lt;span class="na"&gt;forks&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s"&gt;22&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Ansible always expects there to at least be a &lt;code&gt;[defaults]&lt;/code&gt; configuration group. You can specify other groups that playbooks can run from, but we're only going to use one for now, so defaults will work. We'll turn off host key checking because we'll be hitting several different racks, and due to the nature of DHCP, it will probably assign the same IP to different hosts as we move from rack to rack, so we want to just ignore host key checking. We'll set a timeout, so that we're not waiting forever for an unreachable host, tell playbooks to use the &lt;code&gt;hosts&lt;/code&gt; file we created by default, where to place the log file for our playbook runs, and how many ssh sessions can run at once. I was working with 22 R630s per rack in my case, so you could raise that number if you wanted, but keep any on resource usage on your Pi, and network usage in general.&lt;/p&gt;
+&lt;p&gt;Next, let's fill out &lt;code&gt;ssh_config&lt;/code&gt;&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;Host *
+    GSSAPIAuthentication no
+    VerifyHostKeyDNS no
+    HashKnownHosts no
+    TCPKeepAlive yes
+    ServerAliveInterval 60
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;I'm not going to spend much time talking about these, but basically this is telling ssh itself not to check for host keys, to skip hitting DNS for hostnames, and other tweaks to speed up the connection process&lt;/p&gt;
+&lt;p&gt;Now, let's fill out the hosts file. Really, this file is Ansible's &lt;em&gt;inventory&lt;/em&gt;, but many folks will call this file &lt;code&gt;hosts&lt;/code&gt; or some variation thereof, probably because it's similar to the &lt;code&gt;/etc/hosts&lt;/code&gt; file on Linux systems. Though, rather than mapping hostnames to IP addresses, this maps hosts (be them IPs or names) to groups. This allows playbooks to only run on specific groups of hosts. You could have a webserver group, a database group, and a proxy group. You'd probably want to install some similar software on the webserver and proxy groups, so a playbook could install something like nginx on both of them, while a different playbook could install mysql on the database group. A plabyook can run against one group, some groups, all groups, or even just individual hosts that are outside of groups. Here's a basic we can use for iDRAC&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="k"&gt;[base]&lt;/span&gt;
+&lt;span class="err"&gt;192.168.1.100&lt;/span&gt;
+&lt;span class="err"&gt;192.168.1.101&lt;/span&gt;
+&lt;span class="err"&gt;192.168.1.102&lt;/span&gt;
+&lt;span class="err"&gt;192.168.1.103&lt;/span&gt;
+&lt;span class="err"&gt;192.168.1.104&lt;/span&gt;
+&lt;span class="err"&gt;192.168.1.105&lt;/span&gt;
+&lt;span class="err"&gt;192.168.1.106&lt;/span&gt;
+
+&lt;span class="k"&gt;[bigswitch]&lt;/span&gt;
+&lt;span class="err"&gt;192.168.1.109&lt;/span&gt;
+&lt;span class="err"&gt;192.168.1.110&lt;/span&gt;
+
+&lt;span class="k"&gt;[local]&lt;/span&gt;
+&lt;span class="err"&gt;127.0.0.1&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;We have our settings configured, now let's actually work on a playbook. Here's my iDRAC config for any base system&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="gd"&gt;--- # Base iDRAC config for most r630s&lt;/span&gt;
+&lt;span class="gd"&gt;- gather_facts: false&lt;/span&gt;
+  name: base idrac config
+  hosts: idrac
+  user: root
+  tasks:
+    - name: disable default password warning
+      raw: racadm set idrac.tuning.DefaultCredentialWarning 0
+
+    - name: get service tag
+      raw: racadm getsvctag
+      register: result
+    - debug:
+        var: result
+
+    - name: enable ipv6
+      raw: racadm set iDRAC.IPv6.Enable 1
+      register: result
+
+    - name: set NIC to LOM3
+      raw: racadm set iDRAC.NIC.Selection 4
+      register: result
+
+    - name: disable hot spare for PSUs
+      raw: racadm set System.Power.Hotspare.Enable 0
+      register: result
+
+    - name: set power policy
+      raw: racadm set System.Power.RedundancyPolicy 1
+      register: result
+
+    - name: get bios version
+      raw: racadm getversion -f bios
+      register: result
+    - debug:
+        var: result
+
+    - name: get idrac version
+      raw: racadm getversion -f idrac
+      register: result
+
+    - name: create linux_os vdisk
+      raw: racadm storage createvd:RAID.Integrated.1-1 -rl r1 -pdkey:Disk.Bay.0:Enclosure.Internal.0-1:RAID.Integrated.1-1,Disk.Bay.1:Enclosure.Internal.0-1:RAID.Integrated.1-1 -name LINUX_OS
+      register: result
+    - name: create images vdisk
+      raw: racadm storage createvd:RAID.Integrated.1-1 -rl r1 -pdkey:Disk.Bay.2:Enclosure.Internal.0-1:RAID.Integrated.1-1,Disk.Bay.3:Enclosure.Internal.0-1:RAID.Integrated.1-1 -name IMAGES
+      register: result
+    - name: apply new disks
+      raw: racadm jobqueue create RAID.Integrated.1-1 -s TIME_NOW --realtime
+      register: result
+    - debug:
+        var: result
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;I won't spend time talking about the various iDRAC commands, but just note you just list out the actual racadm commands that you normally would via ssh or on the console. Unfortunately, there's not an iDRAC Ansible module at this time, but using the &lt;code&gt;raw&lt;/code&gt; module to send raw ssh commands still works fine.  Another thing to note is that I'm registering the results of some of the commmands as variables, then printing them out on the screen (as well as via the playbook log). &lt;code&gt;register&lt;/code&gt; is what stores the results of an action to a variable, and &lt;code&gt;debug&lt;/code&gt; is what spits it out on screen. I'm working on writing the results to a log file with the &lt;code&gt;blockinfile&lt;/code&gt; module, but haven't finished it yet; expect another post when that's done.&lt;/p&gt;
+&lt;p&gt;One last thing is we need to setup our encrypted group variables. We already created a &lt;code&gt;group_vars&lt;/code&gt; directory, so now we'll create a &lt;code&gt;vars&lt;/code&gt; and a &lt;code&gt;vault&lt;/code&gt; directory.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;cd group_vars
+touch vars vault
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;The way this will work, is we will use the &lt;code&gt;ansible_ssh_pass&lt;/code&gt; builtin variable to tell Ansible the password to use when logging in to iDRAC. We'll store this variable in the &lt;code&gt;vars&lt;/code&gt; file. But rather than actually specifying the password there in an unencrypted file, it will reference &lt;code&gt;vault_ansible_ssh_pass&lt;/code&gt; which actually be in the encrypted &lt;code&gt;vault&lt;/code&gt; file.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;$ cat vars
+---
+&lt;span class="nv"&gt;ansible_ssh_pass&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;{{ vault_ansible_ssh_pass }}&amp;quot;&lt;/span&gt;
+
+$ ansible-vault view vault
+Vault password:
+vault_ansible_ssh_pass: calvin
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This setup allows you to store all your variables in the &lt;code&gt;vars&lt;/code&gt; file, while keeping the actual contents of sensitive variables safe in the encrypted &lt;code&gt;vault&lt;/code&gt; file. To create the vault file, use &lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;ansible-vault create vault
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Now, tying all this together, there is one command to run the playbook&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;ansible-playbook playbooks/base_config.yml --ask-vault-pass
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;And that's it. What used to take around 10-15 minutes using bash scripts, now takes 1 and a half minutes using Ansible.&lt;/p&gt;
+&lt;h3&gt;More Reading&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;Ansible Vault - &lt;a href="https://www.digitalocean.com/community/tutorials/how-to-use-vault-to-protect-sensitive-ansible-data-on-ubuntu-16-04"&gt;Digital Ocean: How to Use Vault to Protect Sensitive Ansible Data on Ubuntu 16.04&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;</content><category term="ansible"></category><category term="idrac"></category><category term="pi"></category></entry><entry><title>Automating Setup on a Dell R630, Part 1</title><link href="/automating-setup-on-a-dell-r630-part-1.html" rel="alternate"></link><published>2016-12-01T00:00:00-05:00</published><updated>2016-12-01T00:00:00-05:00</updated><author><name>Garett</name></author><id>tag:None,2016-12-01:/automating-setup-on-a-dell-r630-part-1.html</id><summary type="html">&lt;p&gt;Recently I was setting up a new server rack with several Dell R630s. The out-of-band management tool for Dell devices is called iDRAC. It works fine for most cases, I suppose. You can configure iDRAC and other BIOS settings over ssh allowing you to script out your work which is …&lt;/p&gt;</summary><content type="html">&lt;p&gt;Recently I was setting up a new server rack with several Dell R630s. The out-of-band management tool for Dell devices is called iDRAC. It works fine for most cases, I suppose. You can configure iDRAC and other BIOS settings over ssh allowing you to script out your work which is &lt;em&gt;much&lt;/em&gt; faster than doing things in the GUI. The only problem is all of the R630s were set up with static IPs of 192.168.0.120 by default, which makes connecting to 12 of them over ssh problematic. An easy way to get around this problem is by setting up a DHCP server that will assign addresses to each server, thereby letting you access each one independently.&lt;/p&gt;
+&lt;p&gt;But wait, you ask, you still need to access the GUI to change each server to use DHCP. And if you're going to do that, why not just assign the address you want while you're in the GUI. The answer is that getting into the GUI requires you to reboot the server which in turn means that you have to wait for the plodding iDRAC software which seems to be built on Windows (&lt;strong&gt;!@?$@#$&lt;/strong&gt;) to come up before you can make any changes. I'm wanting fast here, so I'm still going to script it out. The easiest way I've found to do this is to connect your computer to an R630, set an IP of 192.168.0.121 (or really anything on that same /24 subnet should work, but why get too crazy), and run a quick &lt;code&gt;racadm&lt;/code&gt; command to setup DHCP.&lt;/p&gt;
+&lt;h3&gt;Physical Connection&lt;/h3&gt;
+&lt;p&gt;First, connect your computer to an R630 via ethernet. Then set your IP address on that interface to 192.168.0.121 (any IP address in that /24 subnet should work; actually any address at all might...). Next, confirm you can connect to the R630 by pinging 192.168.0.120. If that works, move on to ssh.&lt;/p&gt;
+&lt;h3&gt;SSH&lt;/h3&gt;
+&lt;p&gt;Because we're going to be connecting to multiple servers with the same address, we want to ignore ssh-key checking and keep ssh from adding the server and its public key to our known hosts file. To do this, use the following ssh options:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=dev/null -o LogLevel=QUIET
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;This will let it just connect to the server, security be damned! If you have any man-in-the-middle attacks between you and a server you're directly connected to and sitting in front of, ssh key checking is the least of your worries.&lt;/p&gt;
+&lt;p&gt;To keep from having to enter a password for each connection made to iDRAC, use &lt;code&gt;sshpass&lt;/code&gt;. For a Mac, install it using Homebrew. If you're not using Homebrew, start using it. &lt;code&gt;sshpass&lt;/code&gt; is considered by many to be bad from a security perspective, so it's not included with Homebrew by default. But you can install it from Sourceforge (yes, I know, I know. But it is legit) using the the command:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;brew install https://raw.githubusercontent.com/kadwanev/bigboybrew/master/Library/Formula/sshpass.rb
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;After doing that, just add &lt;code&gt;sshpass -p &amp;lt;your password&amp;gt;&lt;/code&gt; in front of the ssh command, and you will be that much closer to automation heaven.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;sshpass -p password ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=dev/null -o LogLevel=QUIET
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Now we're cooking with gas!&lt;/p&gt;
+&lt;h3&gt;Scripts&lt;/h3&gt;
+&lt;p&gt;We're going to attempt to make our scripts modular, that way base ssh and racadm logic that isn't going to change will stay in one shell script, and the actual racadm commands that will vary depending on what operation we want will stay in their own scripts. So our directory structure will look something like this:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;idrac.sh
+idrac_config.sh
+idrac_config_bigswitch.sh
+idrac_config_nostorage.sh
+idrac_enable_pxe.sh
+idrac_get_ips.sh
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;That top &lt;code&gt;idrac.sh&lt;/code&gt; file is the main one, which all other scripts will call. And it looks like this&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="ch"&gt;#!/bin/bash&lt;/span&gt;
+
+&lt;span class="nv"&gt;USER&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;root
+&lt;span class="nv"&gt;pass&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="nv"&gt;$1&lt;/span&gt;
+&lt;span class="nv"&gt;server&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="nv"&gt;$2&lt;/span&gt;
+&lt;span class="nb"&gt;shift&lt;/span&gt;
+&lt;span class="nb"&gt;shift&lt;/span&gt;
+&lt;span class="nv"&gt;cmd&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="nv"&gt;$*&lt;/span&gt;
+
+&lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$cmd&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;
+sshpass -p &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;pass&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; ssh -o &lt;span class="nv"&gt;StrictHostKeyChecking&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;no -o &lt;span class="nv"&gt;UserKnownHostsFile&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;dev/null -o &lt;span class="nv"&gt;LogLevel&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;QUIET &lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;USER&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;@&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;server&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; racadm &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;cmd&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;You can obviously modify the variable values to store or pass in values to your liking. In my example, I'm always using the root user, and rather than storing the password in a file, I'll pass it in at runtime. This means that our other scripts will only need to call this script and supply the iDRAC password, which server to run this on (its IP address) and the actual racadm command.&lt;/p&gt;
+&lt;p&gt;Moving on, we can now create our actual iDRAC scripts. Here's an example of one of my base idrac configuration scripts&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="ch"&gt;#!/bin/bash&lt;/span&gt;
+
+&lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="o"&gt;[&lt;/span&gt; -z &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$1&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="o"&gt;]&lt;/span&gt;
+&lt;span class="k"&gt;then&lt;/span&gt;
+    &lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;Please specify the name of the log file and servers file&amp;quot;&lt;/span&gt;
+    &lt;span class="nb"&gt;exit&lt;/span&gt; 1
+&lt;span class="k"&gt;elif&lt;/span&gt; &lt;span class="o"&gt;[&lt;/span&gt; -f &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$1&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;_&lt;span class="k"&gt;$(&lt;/span&gt;basename &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$0&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; .sh&lt;span class="k"&gt;)&lt;/span&gt;.log &lt;span class="o"&gt;]&lt;/span&gt;
+&lt;span class="k"&gt;then&lt;/span&gt;
+    &lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;Filename already exists. Please choose a different one.&amp;quot;&lt;/span&gt;
+    &lt;span class="nb"&gt;exit&lt;/span&gt; 1
+&lt;span class="k"&gt;else&lt;/span&gt;
+    &lt;span class="nv"&gt;site&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="nv"&gt;$1&lt;/span&gt;
+&lt;span class="k"&gt;fi&lt;/span&gt;
+
+&lt;span class="k"&gt;if&lt;/span&gt; &lt;span class="o"&gt;[&lt;/span&gt; -z &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$2&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="o"&gt;]&lt;/span&gt;
+&lt;span class="k"&gt;then&lt;/span&gt;
+    &lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;Please specify the password used to login to iDRAC&amp;quot;&lt;/span&gt;
+    &lt;span class="nb"&gt;exit&lt;/span&gt; 1
+&lt;span class="k"&gt;else&lt;/span&gt;
+    &lt;span class="nv"&gt;pass&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="nv"&gt;$2&lt;/span&gt;
+&lt;span class="k"&gt;fi&lt;/span&gt;
+
+&lt;span class="nv"&gt;RACADM&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;./idrac.sh&amp;quot;&lt;/span&gt;
+&lt;span class="nv"&gt;LOGFILE&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$1&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;_&lt;span class="k"&gt;$(&lt;/span&gt;basename &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$0&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="k"&gt;)&lt;/span&gt;.log
+
+
+&lt;span class="k"&gt;for&lt;/span&gt; server in &lt;span class="k"&gt;$(&lt;/span&gt;cat &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$site&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;.txt&lt;span class="k"&gt;)&lt;/span&gt;
+&lt;span class="k"&gt;do&lt;/span&gt;
+    &lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;Starting iDRAC config for &lt;/span&gt;&lt;span class="si"&gt;${&lt;/span&gt;&lt;span class="nv"&gt;server&lt;/span&gt;&lt;span class="si"&gt;}&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &amp;gt;&amp;gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$LOGFILE&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;
+    &lt;span class="c1"&gt;# disable default password warning&lt;/span&gt;
+    &lt;span class="nv"&gt;$RACADM&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$pass&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$server&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;set idrac.tuning.DefaultCredentialWarning 0&amp;quot;&lt;/span&gt; &amp;gt;&amp;gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$LOGFILE&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;
+    &lt;span class="c1"&gt;# get idrac, BIOS and lifecycle controller version&lt;/span&gt;
+    &lt;span class="nv"&gt;$RACADM&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$pass&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$server&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;getversion&amp;quot;&lt;/span&gt; &amp;gt;&amp;gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$LOGFILE&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;
+    &lt;span class="c1"&gt;# get service tag&lt;/span&gt;
+    &lt;span class="nv"&gt;$RACADM&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$pass&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$server&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;getsvctag&amp;quot;&lt;/span&gt; &amp;gt;&amp;gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$LOGFILE&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;
+    &lt;span class="c1"&gt;# get mac address of idrac port&lt;/span&gt;
+    &lt;span class="nv"&gt;$RACADM&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$pass&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$server&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;get iDRAC.NIC.MACAddress&amp;quot;&lt;/span&gt; &amp;gt;&amp;gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$LOGFILE&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;
+    &lt;span class="c1"&gt;# create virtual drive for OS install&lt;/span&gt;
+    &lt;span class="nv"&gt;$RACADM&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$pass&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$server&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;storage createvd:RAID.Integrated.1-1 -rl r1 -pdkey:Disk.Bay.0:Enclosure.Internal.0-1:RAID.Integrated.1-1,Disk.Bay.1:Enclosure.Internal.0-1:RAID.Integrated.1-1 -name LINUX_OS&amp;quot;&lt;/span&gt; &amp;gt;&amp;gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$LOGFILE&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;
+    &lt;span class="c1"&gt;# create virtual drive for images&lt;/span&gt;
+    &lt;span class="nv"&gt;$RACADM&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$pass&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$server&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;storage createvd:RAID.Integrated.1-1 -rl r1 -pdkey:Disk.Bay.2:Enclosure.Internal.0-1:RAID.Integrated.1-1,Disk.Bay.3:Enclosure.Internal.0-1:RAID.Integrated.1-1 -name IMAGES&amp;quot;&lt;/span&gt; &amp;gt;&amp;gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$LOGFILE&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;
+    &lt;span class="c1"&gt;# actually create it here&lt;/span&gt;
+    &lt;span class="nv"&gt;$RACADM&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$pass&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$server&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;jobqueue create RAID.Integrated.1-1 -s TIME_NOW --realtime&amp;quot;&lt;/span&gt; &amp;gt;&amp;gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$LOGFILE&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;
+    &lt;span class="c1"&gt;# enable ipv6&lt;/span&gt;
+    &lt;span class="nv"&gt;$RACADM&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$pass&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$server&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;set iDRAC.IPv6.Enable 1&amp;quot;&lt;/span&gt; &amp;gt;&amp;gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$LOGFILE&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;
+    &lt;span class="c1"&gt;# set idrac port to LOM 3&lt;/span&gt;
+    &lt;span class="nv"&gt;$RACADM&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$pass&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$server&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;set iDRAC.NIC.Selection 4&amp;quot;&lt;/span&gt; &amp;gt;&amp;gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$LOGFILE&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;
+    &lt;span class="c1"&gt;# disable hot spare for PSUs&lt;/span&gt;
+    &lt;span class="nv"&gt;$RACADM&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$pass&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$server&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;set System.Power.Hotspare.Enable 0&amp;quot;&lt;/span&gt; &amp;gt;&amp;gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$LOGFILE&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;
+    &lt;span class="c1"&gt;# set redundancy policy to something&lt;/span&gt;
+    &lt;span class="nv"&gt;$RACADM&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$pass&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$server&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot;set System.Power.RedundancyPolicy 1&amp;quot;&lt;/span&gt; &amp;gt;&amp;gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$LOGFILE&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;
+    &lt;span class="nb"&gt;echo&lt;/span&gt; &lt;span class="s2"&gt;&amp;quot; &amp;quot;&lt;/span&gt; &amp;gt;&amp;gt; &lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;&lt;span class="nv"&gt;$LOGFILE&lt;/span&gt;&lt;span class="s2"&gt;&amp;quot;&lt;/span&gt;
+&lt;span class="k"&gt;done&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;</content><category term="bash"></category><category term="idrac"></category></entry><entry><title>Create a Console Server with a Raspberry Pi</title><link href="/create-a-console-server-with-a-raspberry-pi.html" rel="alternate"></link><published>2016-08-19T00:00:00-04:00</published><updated>2016-08-19T00:00:00-04:00</updated><author><name>Garett</name></author><id>tag:None,2016-08-19:/create-a-console-server-with-a-raspberry-pi.html</id><summary type="html">&lt;blockquote&gt;
+&lt;p&gt;&lt;em&gt;&lt;a href="#09062016-update"&gt;UPDATE 9/6/2016&lt;/a&gt;: I've added an extra step I had to take when I added a USB hub to my setup.&lt;/em&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;br&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;If you want to skip my ramblings and go straight to the tutorial, click &lt;a href="#tutorial"&gt;here&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;I'm in the wrong business&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;I have lots of options. In the technology …&lt;/p&gt;</summary><content type="html">&lt;blockquote&gt;
+&lt;p&gt;&lt;em&gt;&lt;a href="#09062016-update"&gt;UPDATE 9/6/2016&lt;/a&gt;: I've added an extra step I had to take when I added a USB hub to my setup.&lt;/em&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;br&gt;&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;If you want to skip my ramblings and go straight to the tutorial, click &lt;a href="#tutorial"&gt;here&lt;/a&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;&lt;strong&gt;I'm in the wrong business&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;I have lots of options. In the technology field, I could do systems engineering, DevOps - I could do one of those cool new bootcamp schools and learn to be a data scientist. Or, I could leave behind this fast-paced world of technology and the constant bending of my mind to conform to a machine that only speaks in two digits and pursue a different area of work. Marketing, nursing, truck driving, carpentry, farming... All valuable and meaningful work, I'm sure. And some pay better than others, but I'm convinced none offer better profit margins combined with ease of getting a product to market than &lt;em&gt;enterprise hardware sales&lt;/em&gt;.&lt;/p&gt;
+&lt;p&gt;Why enterprise hardware sales, you ask? Please take a look at Exhibit A (the only exhibit I've put together), a &lt;a href="https://www.blackbox.com/en-us/store/Detail.aspx/Dual-10-100-1000-Secure-Console-Server-16-Port/LES8164A"&gt;Black Box LES8164A 16-port Secure Console Server&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="an expensive motherboard" src="https://az849230.vo.msecnd.net/images/moreviews1/LES8164A_PCS.jpg"&gt;&lt;/p&gt;
+&lt;p&gt;It is a beautiful piece of hardware, for sure. Those clean black lines, the understated simplicity. You could almost call it minimalistic...in an IBM sort of way. And really, it doesn't look that complicated, either. Yes, there are 16 ports on the back, but other than that, there's only one button, for power. And if you were to look inside of it, you'd be even more amazed at how simple this box is.&lt;/p&gt;
+&lt;p&gt;&lt;img alt="a boring landscape" src="https://s3.amazonaws.com/garettmd/inside_black_box.jpg"&gt;&lt;/p&gt;
+&lt;p&gt;I was just taking a picture through the vents on the side, but you can tell from the picture that there's not a lot going on, at least nothing more than most low-power hardware. And that's all there is to it. On the software side, it allows you to establish connections to serial devices that are connected to those 16 ports, via the server's own IP address and a virtual port. For example, let's say my Cisco 2911 router was connected and configured to use virtual port 5001. I would simply run &lt;code&gt;telnet 10.0.0.2 5001&lt;/code&gt;, and the console server would forward all my traffic to the router, letting me connect to it as if I were directly connected over a serial connection. This is pretty cool. It also lets you do a few other configurations that are basically variations on that use case, but nothing crazy. Now, how much will this thing cost you?&lt;/p&gt;
+&lt;p&gt;Only the small sum of &lt;strong&gt;$1,805.85&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;That's right, for more than the price of one of those 2911 routers, or even the price of a low-end rack server - &lt;em&gt;things that actually do something&lt;/em&gt; - you can have yourself a pretty black box that forwards packets on to other devices connected to it. That sounds like a switch, you say. Well, you're right, it's not much more than that.&lt;/p&gt;
+&lt;p&gt;So why is it $1,805.85? My only guess for why anyone can get away with selling a console server like this for $1,800+ is because of who they're selling to (enterprises). Because once you see that you can make something like this for $90 and 30 minutes of work (did I mention I spent a few days trying to setup the Black Box?), you might reconsider the industry you're in.&lt;/p&gt;
+&lt;h3 id='tutorial'&gt;Raspbery Pi Console Server&lt;/h3&gt;
+
+&lt;p&gt;Ah, the Raspberry Pi, a legend of computing. It has arguably been one of the most democratizing devices in recent computing history. It's combination and well-designed ratios of power, cost, approachability, and size have made this the de facto standard for hobbyists, students, and enterprise workers like me who have had their eyes opened to just how cheap these devices are, and what you're really paying for when it comes to enterprise silicon.&lt;/p&gt;
+&lt;p&gt;Anyway, enough rambling. Let's build this thing.&lt;/p&gt;
+&lt;h4&gt;Get a Raspberry Pi&lt;/h4&gt;
+&lt;p&gt;Here is a &lt;a href="http://amzn.to/2bq8Q3Q"&gt;Raspberry Pi 3 kit&lt;/a&gt; that makes setting up the Pi a lot easier. It includes the Pi 3, a case, power adapter, HDMI cable, a micro SD card with NOOBS pre-loaded (so you don't need to download and format an SD card), and even a couple heatsinks (probably not necessary but cool to have). You can just get the Pi by itself, but it is way more enjoyable to get a kit so you can be up and running much faster.&lt;/p&gt;
+&lt;h4&gt;Install Raspbian&lt;/h4&gt;
+&lt;p&gt;First, we'll need to install the OS. You should probably use the default distro for the device, Raspbian. It's a Debian variant tweaked for the RPi that should have what you need for 95% of your use cases. There are plenty of guides on how to do this online, so I'll let you figure that out, as it's pretty straightforward anyway. And, if you use the RPi that I linked to, it will have NOOBS which makes it basically a one-click affair. After you're up and running, and made sure you've &lt;code&gt;sudo apt-get upgrade&lt;/code&gt;ed your system, move to the next step, and the real fun.&lt;/p&gt;
+&lt;h4&gt;Configure the network&lt;/h4&gt;
+&lt;p&gt;This step is really optional, but I think a static IP would be your best bet in this case, unless you want to use something like a dynamic DNS client. Otherwise you'll be left guessing the IP address for your console server.&lt;/p&gt;
+&lt;p&gt;Open up &lt;code&gt;/etc/dhcpcd.conf&lt;/code&gt;, and add the below lines, replacing the &lt;code&gt;#&lt;/code&gt;s with your actual address.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;interface eth0
+
+static ip_address=###.###.###.###
+static routers=###.###.###.###
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h4&gt;Setup ser2net&lt;/h4&gt;
+&lt;p&gt;Note that the "router" is equivalent to the gateway, if you're not actually plugged in to a router. Next, install the ser2net package. If you also want to use telnet to console into your devices, install the telnetd package&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;sudo apt-get install ser2net telnetd
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Now that those are complete, we need to setup our &lt;code&gt;/etc/ser2net.conf&lt;/code&gt; file. Learning the syntax and structure of the configuration file kind of feels like you're learning another language or huge tool like Apache, but after you get a feel for it, it's actually pretty straightforward, and for our purposes, there's not a whole lot to setup. First, you'll want to find what serial connections you have and where they are using dmesg.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;dmesg | grep tty
+
+[    0.000000] Kernel command line: 8250.nr_uarts=0 dma.dmachans=0x7f35 bcm2708_fb.fbwidth=640 bcm2708_fb.fbheight=480 bcm2709.boardrev=0xa22082 bcm2709.serial=0xb65b0142 smsc95xx.macaddr=B8:27:EB:5B:01:42 bcm2708_fb.fbswap=1 bcm2709.uart_clock=48000000 vc_mem.mem_base=0x3dc00000 vc_mem.mem_size=0x3f000000  dwc_otg.lpm_enable=0 console=ttyS0,115200 console=tty1 root=/dev/mmcblk0p7 rootfstype=ext4 elevator=deadline fsck.repair=yes rootwait
+[    0.001335] console [tty1] enabled
+[    1.935233] 3f201000.uart: ttyAMA0 at MMIO 0x3f201000 (irq = 87, base_baud = 0) is a PL011 rev2
+[  329.653259] usb 1-1.2: FTDI USB Serial Device converter now attached to ttyUSB0
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;In my case, the key line is the &lt;code&gt;USB Serial Device converter now attached to ttyUSB0&lt;/code&gt;. This tells me that a USB device (a Cisco style console cable) is connected on the first USB port on the RPi. &lt;code&gt;ttyUSB0&lt;/code&gt; corresponds to the device file in &lt;code&gt;/dev/ttyUSB0&lt;/code&gt;. If you wanted to manually connect to this port, you could issue a &lt;code&gt;screen /dev/ttyUSB0&lt;/code&gt; which would open up a console session. If you did that, press Ctrl+a, then Shift+k to kill that session, otherwise you won't be able to connect to it later via ser2net. After you've written down all the devices that are connected, it's time to start filling out the configuration file. Go to the bottom of the file and add something like the following:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;&lt;span class="n"&gt;BANNER&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;banner&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;OnX&lt;/span&gt; &lt;span class="n"&gt;Lab&lt;/span&gt; &lt;span class="n"&gt;Console&lt;/span&gt; &lt;span class="n"&gt;Server&lt;/span&gt;
+&lt;span class="n"&gt;port&lt;/span&gt; &lt;span class="n"&gt;p&lt;/span&gt; &lt;span class="n"&gt;device&lt;/span&gt; &lt;span class="n"&gt;d&lt;/span&gt; &lt;span class="n"&gt;serial&lt;/span&gt; &lt;span class="n"&gt;parms&lt;/span&gt; &lt;span class="n"&gt;srn&lt;/span&gt;
+
+&lt;span class="n"&gt;TRACEFILE&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;tr1&lt;/span&gt;&lt;span class="o"&gt;:/&lt;/span&gt;&lt;span class="n"&gt;var&lt;/span&gt;&lt;span class="sr"&gt;/log/ser2net/&lt;/span&gt;&lt;span class="o"&gt;\&lt;/span&gt;&lt;span class="n"&gt;p&lt;/span&gt;&lt;span class="o"&gt;-\&lt;/span&gt;&lt;span class="n"&gt;Y&lt;/span&gt;&lt;span class="o"&gt;-\&lt;/span&gt;&lt;span class="n"&gt;M&lt;/span&gt;&lt;span class="o"&gt;-\&lt;/span&gt;&lt;span class="n"&gt;D&lt;/span&gt;&lt;span class="o"&gt;-\&lt;/span&gt;&lt;span class="n"&gt;H&lt;/span&gt;&lt;span class="o"&gt;:\&lt;/span&gt;&lt;span class="n"&gt;i&lt;/span&gt;&lt;span class="o"&gt;:\&lt;/span&gt;&lt;span class="n"&gt;S&lt;/span&gt;&lt;span class="o"&gt;.\&lt;/span&gt;&lt;span class="n"&gt;U&lt;/span&gt;
+&lt;span class="mi"&gt;4001&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="n"&gt;telnet&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;0&lt;/span&gt;&lt;span class="o"&gt;:/&lt;/span&gt;&lt;span class="n"&gt;dev&lt;/span&gt;&lt;span class="o"&gt;/&lt;/span&gt;&lt;span class="n"&gt;ttyUSB0&lt;/span&gt;&lt;span class="o"&gt;:&lt;/span&gt;&lt;span class="mi"&gt;9600&lt;/span&gt; &lt;span class="mi"&gt;8&lt;/span&gt;&lt;span class="n"&gt;DATABITS&lt;/span&gt; &lt;span class="n"&gt;NONE&lt;/span&gt; &lt;span class="mi"&gt;1&lt;/span&gt;&lt;span class="n"&gt;STOPBIT&lt;/span&gt; &lt;span class="n"&gt;banner&lt;/span&gt; &lt;span class="n"&gt;tr&lt;/span&gt;&lt;span class="o"&gt;=&lt;/span&gt;&lt;span class="n"&gt;tr1&lt;/span&gt; &lt;span class="n"&gt;timestamp&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Let's break this down.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;The &lt;code&gt;BANNER&lt;/code&gt; section defines a banner message (like a motd) that you want to display anytime someone logs in. The all caps &lt;code&gt;BANNER&lt;/code&gt; part states you're defining a banner. The next part after the colon defines the name of that banner (since you could show, for example, different banners for different connections), and part after the second colon is the actual banner message. Note that the message can be multi-line if you so please.&lt;/li&gt;
+&lt;li&gt;The &lt;code&gt;TRACEFILE&lt;/code&gt; portion defines a log file which will log everything that's output and input into a session. &lt;em&gt;This is an important thing to set up.&lt;/em&gt; Like the &lt;code&gt;BANNER&lt;/code&gt; section, the first part says that it's a tracefile you're setting up, the second part names it, and the third part is the actual file name and location. In my example, I put it under the &lt;code&gt;/var/log/ser2net/&lt;/code&gt; directory, and gave it a name with some of the builtin variables ser2net uses. If you read the man page for it, you can see the full listing of options you can use. What I used in my example was:&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;p&lt;/code&gt;: that device's port&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;Y&lt;/code&gt;: today's year&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;M&lt;/code&gt;: today's month&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;D&lt;/code&gt;: today's day of the month&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;H&lt;/code&gt;: the hour in 24-hour format&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;i&lt;/code&gt;: the minute&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;S&lt;/code&gt;: the second&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;U&lt;/code&gt;: the &lt;em&gt;microsecond&lt;/em&gt;&lt;br&gt;
+   And there are a lot of other options, so you can setup your log files in whatever format makes sense to you.&lt;/li&gt;
+&lt;li&gt;Start off the actual device definition with the port number you want to use. After the first colon, you'll specify the device. ser2net calls it "state". Your options are off,raw,rawlp, and telnet. Telnet will actually work with both telnet and ssh, so I'm guessing that's what you're going to use most of the time. After the second colon, you'll specify the timeout for that port, with 0 meaning disabled. After the third colon, you specify the actual device file that we grabbed using dmesg earlier. In this example it's &lt;code&gt;/dev/ttyUSB0&lt;/code&gt;. After the fourth colon, you get to specify all the options. This includes the typical console settings like the baud rate, flow control, etc. Here we're using 9600 baud, 8 databits, NONE to set no parity, and 1 stop bit. We also specified the banner name from earlier (and in the way the syntax works, you probably shouldn't name any of your banners in a way that matches any of the device configuration options, to avoid confusing ser2net). The &lt;code&gt;tr=tr1&lt;/code&gt; tells ser2net which tracefile to use. The reason we're explicitly naming this parameter, unlike the banner, is because you have several different options for the tracefile. &lt;code&gt;tr&lt;/code&gt; tells ser2net to log all data read from the device. You can use &lt;code&gt;tw&lt;/code&gt; to log all data written to the device, or &lt;code&gt;tb&lt;/code&gt; for both data read and written. Note that you can use all of these options at the same time and write to three different files. &lt;code&gt;timestamp&lt;/code&gt; adds a timestamp to the tracefile.&lt;/li&gt;
+&lt;li&gt;There are a few other options that you can read about in the man pages, but the options I've used here are - I think - the most commonly used ones.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Now, we need to create the directories for the trace (log) files that ser2net will write to. We don't need to create the actual files, just the directories it will write to.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;mkdir /var/log/ser2net
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;We're almost ready to test, but first restart the ser2net daemon so that it picks up on the changes we made&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;/etc/init.d/restart ser2net
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Now we're ready to test. Make sure your serial cables are plugged in to your device and the RPi. On another device, telnet into your RPi over the port you specified for one of your devices&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;telnet 10.0.0.20 4001
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;If everything worked, you should get the banner message you added to the configuration file, followed by whatever prompt you would normally get when directly connected to that server. To close out of it, press Ctrl+d, then &lt;code&gt;]&lt;/code&gt; (the right bracket). Now, let's make sure your log file is being created successfully. Log back in to the Pi, and &lt;code&gt;ls -l /var/log/ser2net&lt;/code&gt; to confirm the file is there. If you &lt;code&gt;cat&lt;/code&gt; the file it should show everything you were seeing when you consoled into your other device.&lt;/p&gt;
+&lt;p&gt;Congratulations, you just build a console server, and saved approximately $1,700 in doing so. You might even get a pat on the back from your boss. Now go and &lt;a href="https://www.linode.com/docs/security/securing-your-server/"&gt;secure your Pi&lt;/a&gt;.&lt;/p&gt;
+&lt;h3 id='09062016-update'&gt;Update: USB Hub&lt;/h3&gt;
+
+&lt;p&gt;The Raspberry Pi 3 comes with 4 USB 2.0 hubs, which is great, but I decided that I needed a few more ports as I would be needing console access to more than 4 servers at a time. I got an &lt;a href="https://smile.amazon.com/dp/B005NGQWL2"&gt;Anker 10-port USB 3.0 hub&lt;/a&gt; which is a slick little device. It's well made, and the clear numbering on the side makes it easy to use in my case, where I would be communicating to people onsite where to plug in different console cables while I worked remotely. I pluggged the hub into the Pi, then checked dmesg to see if it recognized the hub. It gave me some errors like &lt;code&gt;port1: unable to enumerate USB device&lt;/code&gt; and the key one being &lt;code&gt;device not accepting address #, error -71&lt;/code&gt;. For some reason, the Pi wasn't able to communicate correctly with the hub and its ports. After some searching, I found some options that worked for some people, but ended up landing on one that made the Pi use USB 1.1 (!). You use these options by adding them to the &lt;code&gt;/boot/cmdline.txt&lt;/code&gt; then rebooting.&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;usbcore.old_scheme_first=Y&lt;/code&gt; - This appears to make the Pi use an older style protocol that uses a smaller initialization handshake with the device than what many newer devices use. It didn't work in my situation.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;usbcore.use_both_schemes=Y&lt;/code&gt; - This should make the Pi use both the older (from the last bullet point) and the newer schemes, but this didn't work for me, either.&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;&lt;code&gt;dwc_otg.speed=1&lt;/code&gt;&lt;/strong&gt; - This essentially tells the Pi to operate at USB 1.1 (read: &lt;em&gt;old school&lt;/em&gt;) speeds. I saw a lot of warnings about this, as it apparently can cause more problems on some devices, making Pi take forever to boot since it has trouble doing even basic communication with some devices. I tried the other options first because of this, but in the end, setting the speed lower made the hub work. It's definitely a workaround, and could be problematic for other devices to connect (many people had problems getting keyboards and mice to connect while this option was turned on) but for my single-purpose device, it works for me. This also makes your ethernet port run super slow, as this setting also apparently controls the speed at which the port communicates with the motherboard. So if you need to transfer a lot of large files quickly, you might want to look to using another device in addition to this one.&lt;/li&gt;
+&lt;/ul&gt;
+&lt;!--TODO: Get the Amazon affiliate stuff up and running--&gt;
+
+&lt;!--TODO: Add image of the inside of box--&gt;</content></entry><entry><title>Upgrading All Your Pip Packages</title><link href="/upgrading-all-your-pip-packages.html" rel="alternate"></link><published>2016-08-19T00:00:00-04:00</published><updated>2016-08-19T00:00:00-04:00</updated><author><name>Garett</name></author><id>tag:None,2016-08-19:/upgrading-all-your-pip-packages.html</id><summary type="html">&lt;p&gt;Pip, the package manager (and its package repository PyPI) is one of the most important parts of the Python ecosystem. Arguably, it's the most important part of why Python is so popular. The fact that it's so easy to import a module into Python and &lt;a href="https://xkcd.com/353/"&gt;easily use its features&lt;/a&gt; would …&lt;/p&gt;</summary><content type="html">&lt;p&gt;Pip, the package manager (and its package repository PyPI) is one of the most important parts of the Python ecosystem. Arguably, it's the most important part of why Python is so popular. The fact that it's so easy to import a module into Python and &lt;a href="https://xkcd.com/353/"&gt;easily use its features&lt;/a&gt; would be greatly hindered if the process of actually &lt;em&gt;getting&lt;/em&gt; all those cool modules wasn't easy. Pip is one of the foundational tools in the Python ecosystem and is really cool to use.&lt;/p&gt;
+&lt;p&gt;Which makes it even harder to understand why it's missing some very key and - I would argue - basic features.&lt;/p&gt;
+&lt;p&gt;Take, for instance, upgrading all your packages.&lt;/p&gt;
+&lt;p&gt;Let's look at &lt;code&gt;brew&lt;/code&gt;, the awesome "missing package manager for Mac". It is another way cool package manager, that also has a really cool and taken for granted feature:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;brew upgrade
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;&lt;strong&gt;BOOM&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;Now all your packages managed by &lt;code&gt;brew&lt;/code&gt; are updated. Simple.&lt;/p&gt;
+&lt;p&gt;Ok, that's a package manager for an OS, so not quite the same (although I'm not sure if it matters or not). So let's look at another example, the node.js package manager, &lt;code&gt;npm&lt;/code&gt;:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;npm update
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;&lt;strong&gt;WOW&lt;/strong&gt;, yet another fine example of using only &lt;em&gt;2&lt;/em&gt; commands strung together to easily update all your npm-managed node.js packages. Quite an amazing feat of technology. Since we're talking about &lt;code&gt;pip&lt;/code&gt;, let's take a look at how to upgrade all your modules at once:&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;pip help
+
+Usage:
+  pip &amp;lt;command&amp;gt; [options]
+
+Commands:
+  install                     Install packages.
+  download                    Download packages.
+  uninstall                   Uninstall packages.
+  freeze                      Output installed packages in requirements format.
+  list                        List installed packages.
+  show                        Show information about installed packages.
+  search                      Search PyPI for packages.
+  wheel                       Build wheels from your requirements.
+  hash                        Compute hashes of package archives.
+  completion                  A helper command used for command completion
+  help                        Show help for commands.
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Ok...I don't see an update or upgrade command. Let's try &lt;code&gt;install&lt;/code&gt; and see if it has any subcommands that could work.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;pip help install
+
+Install Options:
+  -c, --constraint &amp;lt;file&amp;gt;     Constrain versions using the given constraints file. This option can be used multiple times.
+  -e, --editable &amp;lt;path/url&amp;gt;   Install a project in editable mode (i.e. setuptools &amp;quot;develop mode&amp;quot;) from a local project path or a VCS url.
+  -r, --requirement &amp;lt;file&amp;gt;    Install from the given requirements file. This option can be used multiple times.
+  -b, --build &amp;lt;dir&amp;gt;           Directory to unpack packages into and build in.
+  -t, --target &amp;lt;dir&amp;gt;          Install packages into &amp;lt;dir&amp;gt;. By default this will not replace existing files/folders in &amp;lt;dir&amp;gt;. Use --upgrade to
+                              replace existing packages in &amp;lt;dir&amp;gt; with new versions.
+  -d, --download &amp;lt;dir&amp;gt;        Download packages into &amp;lt;dir&amp;gt; instead of installing them, regardless of what&amp;#39;s already installed.
+  --src &amp;lt;dir&amp;gt;                 Directory to check out editable projects into. The default in a virtualenv is &amp;quot;&amp;lt;venv path&amp;gt;/src&amp;quot;. The default for
+                              global installs is &amp;quot;&amp;lt;current dir&amp;gt;/src&amp;quot;.
+  -U, --upgrade               Upgrade all specified packages to the newest available version. This process is recursive regardless of whether a
+                              dependency is already satisfied.
+  --force-reinstall           When upgrading, reinstall all packages even if they are already up-to-date.
+  -I, --ignore-installed      Ignore the installed packages (reinstalling instead).
+  --no-deps                   Don&amp;#39;t install package dependencies.
+  --install-option &amp;lt;options&amp;gt;  Extra arguments to be supplied to the setup.py install command (use like --install-option=&amp;quot;--install-
+                              scripts=/usr/local/bin&amp;quot;). Use multiple --install-option options to pass multiple options to setup.py install. If you
+                              are using an option with a directory path, be sure to use absolute path.
+  --global-option &amp;lt;options&amp;gt;   Extra global options to be supplied to the setup.py call before the install command.
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Wow, that's a lot of stuff, I had to cut off some of the output to keep this post from being unnecessarily long. Oh look! There's an &lt;code&gt;--upgrade&lt;/code&gt; option. Alright, it looks like you have to specify what package to update. Maybe it will accept an asterisk as a wildcard&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;pip install -U *
+
+Invalid requirement: &amp;#39;__pycache__&amp;#39;
+Traceback (most recent call last):
+  File &amp;quot;/usr/local/lib/python2.7/site-packages/pip/req/req_install.py&amp;quot;, line 78, in __init__
+    req = Requirement(req)
+  File &amp;quot;/usr/local/lib/python2.7/site-packages/pip/_vendor/packaging/requirements.py&amp;quot;, line 96, in __init__
+    requirement_string[e.loc:e.loc + 8]))
+InvalidRequirement: Invalid requirement, parse error at &amp;quot;&amp;#39;__pycach&amp;#39;&amp;quot;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Doesn't look like that will work. After doing some Googling, the most concise way I found was&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;pip list -o -l | cut -d &amp;#39; &amp;#39; -f 1 | sudo -H xargs pip install -U
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;p&gt;Wowza. That's a far cry from a two word command. &lt;code&gt;pip list -o -l&lt;/code&gt; will show you all outdated packages in your local environment (that way if you're in a virtualenv, it's not going to try and update global packages - which could be very bad in some circumstances) in the format of &lt;code&gt;requests (2.10.0) - Latest: 2.11.1 [wheel]&lt;/code&gt;. So that gets you the list of oudated packages. We then have to use &lt;code&gt;cut -d ' ' -f 1&lt;/code&gt; to trim off the fat. &lt;code&gt;-d ' '&lt;/code&gt; changes the field delimiter to a space, then &lt;code&gt;-f 1&lt;/code&gt; tells cut to only spit out the first field, which in our case would be the actual name of each package. Finally, we'll pipe everything back into &lt;code&gt;pip&lt;/code&gt; via a &lt;code&gt;pip install -U&lt;/code&gt;. This is done via &lt;code&gt;xargs&lt;/code&gt;, and I'm using &lt;code&gt;sudo -H&lt;/code&gt; with it for times when I'm updating system level packages, with the &lt;code&gt;-H&lt;/code&gt; setting the &lt;code&gt;HOME&lt;/code&gt; variable to root's home directory.&lt;/p&gt;
+&lt;p&gt;That's not bad, just have to do a little command line-fu, but it's nowhere near the simplicity of node's or other package managers. Oh and on a final note, it's a good idea to create an alias out of this, so that you don't actually have to &lt;em&gt;remember&lt;/em&gt; that chain of commands or worse, type it out&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;alias pipgrade=&amp;quot;pip list -o -l | cut -d &amp;#39; &amp;#39; -f 1 | sudo -H xargs pip install -U&amp;quot;
+&lt;/pre&gt;&lt;/div&gt;
+
+
+&lt;h5&gt;Bonus Points&lt;/h5&gt;
+&lt;p&gt;For extra compatibility with systems that might not have the &lt;code&gt;cut&lt;/code&gt; command, here's a version using awk.&lt;/p&gt;
+&lt;div class="highlight"&gt;&lt;pre&gt;&lt;span&gt;&lt;/span&gt;pip list -o -l | awk -F&amp;#39; &amp;#39; &amp;#39;{print $1}&amp;#39; | sudo -H xargs pip install -U
+&lt;/pre&gt;&lt;/div&gt;</content></entry></feed>

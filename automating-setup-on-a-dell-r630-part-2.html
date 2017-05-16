@@ -4,13 +4,14 @@
 <head>
   <link href='//fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,700,400italic' rel='stylesheet' type='text/css'>
 
-    <link rel="stylesheet" type="text/css" href="http://garettmd.com/theme/stylesheet/style.min.css">
+    <link rel="stylesheet" type="text/css" href="/theme/stylesheet/style.min.css">
 
-  <link rel="stylesheet" type="text/css" href="http://garettmd.com/theme/pygments/monokai.min.css">
-  <link rel="stylesheet" type="text/css" href="http://garettmd.com/theme/font-awesome/css/font-awesome.min.css">
+  <link rel="stylesheet" type="text/css" href="/theme/pygments/monokai.min.css">
+  <link rel="stylesheet" type="text/css" href="/theme/font-awesome/css/font-awesome.min.css">
 
-    <link href="http://garettmd.com/static/custom.css" rel="stylesheet">
+    <link href="/static/custom.css" rel="stylesheet">
 
+    <link href="/feeds/all.atom.xml" type="application/atom+xml" rel="alternate" title="garettmd.com Atom">
 
 
 
@@ -35,11 +36,11 @@
 <meta property="og:title" content="Automating Setup on a Dell R630, Part 2"/>
 <meta property="og:description" content="In part 1, I showed how to automate iDRAC setup using bash scripts. Using those scripts is great and definitely is a huge improvement over doing it all by hand. However, there are some ways to improve the process. In my use, to configure a rack of about 22 R630s …"/>
 <meta property="og:locale" content="en_US"/>
-<meta property="og:url" content="http://garettmd.com/automating-setup-on-a-dell-r630-part-2.html"/>
+<meta property="og:url" content="/automating-setup-on-a-dell-r630-part-2.html"/>
 <meta property="og:type" content="article"/>
 <meta property="article:published_time" content="2017-05-15 00:00:00-04:00"/>
 <meta property="article:modified_time" content=""/>
-<meta property="article:author" content="http://garettmd.com/author/garett.html">
+<meta property="article:author" content="/author/garett.html">
 <meta property="article:section" content="articles"/>
 <meta property="article:tag" content="ansible"/>
 <meta property="article:tag" content="idrac"/>
@@ -52,10 +53,10 @@
 <body>
   <aside>
     <div>
-      <a href="http://garettmd.com">
-        <img src="http://garettmd.com/theme/img/profile.png" alt="Human as a Service" title="Human as a Service">
+      <a href="">
+        <img src="/theme/img/profile.png" alt="Human as a Service" title="Human as a Service">
       </a>
-      <h1><a href="http://garettmd.com">Human as a Service</a></h1>
+      <h1><a href="">Human as a Service</a></h1>
 
 <p>Garett's blog</p>
 
@@ -75,7 +76,7 @@
   <header>
     <h1 id="automating-setup-on-a-dell-r630-part-2">Automating Setup on a Dell R630, Part 2</h1>
     <p>
-          Posted on Mon 15 May 2017 in <a href="http://garettmd.com/category/articles.html">articles</a>
+          Posted on Mon 15 May 2017 in <a href="/category/articles.html">articles</a>
 
 
     </p>
@@ -148,58 +149,58 @@ touch ansible.cfg ssh_config hosts
 
 
 <p>We have our settings configured, now let's actually work on a playbook. Here's my iDRAC config for any base system</p>
-<div class="highlight"><pre><span></span><span class="nn">---</span> <span class="c1"># Base iDRAC config for most r630s</span>
-<span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">gather_facts</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">false</span>
-  <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">base idrac config</span>
-  <span class="l l-Scalar l-Scalar-Plain">hosts</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">idrac</span>
-  <span class="l l-Scalar l-Scalar-Plain">user</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">root</span>
-  <span class="l l-Scalar l-Scalar-Plain">tasks</span><span class="p p-Indicator">:</span>
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">disable default password warning</span>
-      <span class="l l-Scalar l-Scalar-Plain">raw</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">racadm set idrac.tuning.DefaultCredentialWarning 0</span>
+<div class="highlight"><pre><span></span><span class="gd">--- # Base iDRAC config for most r630s</span>
+<span class="gd">- gather_facts: false</span>
+  name: base idrac config
+  hosts: idrac
+  user: root
+  tasks:
+    - name: disable default password warning
+      raw: racadm set idrac.tuning.DefaultCredentialWarning 0
 
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">get service tag</span>
-      <span class="l l-Scalar l-Scalar-Plain">raw</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">racadm getsvctag</span>
-      <span class="l l-Scalar l-Scalar-Plain">register</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">debug</span><span class="p p-Indicator">:</span>
-        <span class="l l-Scalar l-Scalar-Plain">var</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
+    - name: get service tag
+      raw: racadm getsvctag
+      register: result
+    - debug:
+        var: result
 
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">enable ipv6</span>
-      <span class="l l-Scalar l-Scalar-Plain">raw</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">racadm set iDRAC.IPv6.Enable 1</span>
-      <span class="l l-Scalar l-Scalar-Plain">register</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
+    - name: enable ipv6
+      raw: racadm set iDRAC.IPv6.Enable 1
+      register: result
 
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">set NIC to LOM3</span>
-      <span class="l l-Scalar l-Scalar-Plain">raw</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">racadm set iDRAC.NIC.Selection 4</span>
-      <span class="l l-Scalar l-Scalar-Plain">register</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
+    - name: set NIC to LOM3
+      raw: racadm set iDRAC.NIC.Selection 4
+      register: result
 
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">disable hot spare for PSUs</span>
-      <span class="l l-Scalar l-Scalar-Plain">raw</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">racadm set System.Power.Hotspare.Enable 0</span>
-      <span class="l l-Scalar l-Scalar-Plain">register</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
+    - name: disable hot spare for PSUs
+      raw: racadm set System.Power.Hotspare.Enable 0
+      register: result
 
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">set power policy</span>
-      <span class="l l-Scalar l-Scalar-Plain">raw</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">racadm set System.Power.RedundancyPolicy 1</span>
-      <span class="l l-Scalar l-Scalar-Plain">register</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
+    - name: set power policy
+      raw: racadm set System.Power.RedundancyPolicy 1
+      register: result
 
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">get bios version</span>
-      <span class="l l-Scalar l-Scalar-Plain">raw</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">racadm getversion -f bios</span>
-      <span class="l l-Scalar l-Scalar-Plain">register</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">debug</span><span class="p p-Indicator">:</span>
-        <span class="l l-Scalar l-Scalar-Plain">var</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
+    - name: get bios version
+      raw: racadm getversion -f bios
+      register: result
+    - debug:
+        var: result
 
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">get idrac version</span>
-      <span class="l l-Scalar l-Scalar-Plain">raw</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">racadm getversion -f idrac</span>
-      <span class="l l-Scalar l-Scalar-Plain">register</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
+    - name: get idrac version
+      raw: racadm getversion -f idrac
+      register: result
 
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">create linux_os vdisk</span>
-      <span class="l l-Scalar l-Scalar-Plain">raw</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">racadm storage createvd:RAID.Integrated.1-1 -rl r1 -pdkey:Disk.Bay.0:Enclosure.Internal.0-1:RAID.Integrated.1-1,Disk.Bay.1:Enclosure.Internal.0-1:RAID.Integrated.1-1 -name LINUX_OS</span>
-      <span class="l l-Scalar l-Scalar-Plain">register</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">create images vdisk</span>
-      <span class="l l-Scalar l-Scalar-Plain">raw</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">racadm storage createvd:RAID.Integrated.1-1 -rl r1 -pdkey:Disk.Bay.2:Enclosure.Internal.0-1:RAID.Integrated.1-1,Disk.Bay.3:Enclosure.Internal.0-1:RAID.Integrated.1-1 -name IMAGES</span>
-      <span class="l l-Scalar l-Scalar-Plain">register</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">name</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">apply new disks</span>
-      <span class="l l-Scalar l-Scalar-Plain">raw</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">racadm jobqueue create RAID.Integrated.1-1 -s TIME_NOW --realtime</span>
-      <span class="l l-Scalar l-Scalar-Plain">register</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
-    <span class="p p-Indicator">-</span> <span class="l l-Scalar l-Scalar-Plain">debug</span><span class="p p-Indicator">:</span>
-        <span class="l l-Scalar l-Scalar-Plain">var</span><span class="p p-Indicator">:</span> <span class="l l-Scalar l-Scalar-Plain">result</span>
+    - name: create linux_os vdisk
+      raw: racadm storage createvd:RAID.Integrated.1-1 -rl r1 -pdkey:Disk.Bay.0:Enclosure.Internal.0-1:RAID.Integrated.1-1,Disk.Bay.1:Enclosure.Internal.0-1:RAID.Integrated.1-1 -name LINUX_OS
+      register: result
+    - name: create images vdisk
+      raw: racadm storage createvd:RAID.Integrated.1-1 -rl r1 -pdkey:Disk.Bay.2:Enclosure.Internal.0-1:RAID.Integrated.1-1,Disk.Bay.3:Enclosure.Internal.0-1:RAID.Integrated.1-1 -name IMAGES
+      register: result
+    - name: apply new disks
+      raw: racadm jobqueue create RAID.Integrated.1-1 -s TIME_NOW --realtime
+      register: result
+    - debug:
+        var: result
 </pre></div>
 
 
@@ -239,9 +240,9 @@ vault_ansible_ssh_pass: calvin
   </div>
   <div class="tag-cloud">
     <p>
-      <a href="http://garettmd.com/tag/ansible.html">ansible</a>
-      <a href="http://garettmd.com/tag/idrac.html">idrac</a>
-      <a href="http://garettmd.com/tag/pi.html">pi</a>
+      <a href="/tag/ansible.html">ansible</a>
+      <a href="/tag/idrac.html">idrac</a>
+      <a href="/tag/pi.html">pi</a>
     </p>
   </div>
 
@@ -269,7 +270,17 @@ vault_ansible_ssh_pass: calvin
 </p>    </footer>
   </main>
 
+<!-- Google Analytics -->
+<script type="text/javascript">
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
 
+  ga('create', 'UA-82761943-2', 'auto');
+  ga('send', 'pageview');
+</script>
+<!-- End Google Analytics -->
 
 
 
@@ -278,7 +289,7 @@ vault_ansible_ssh_pass: calvin
   "@context" : "http://schema.org",
   "@type" : "Blog",
   "name": " garettmd.com ",
-  "url" : "http://garettmd.com",
+  "url" : "",
   "image": "",
   "description": ""
 }
