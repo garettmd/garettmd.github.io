@@ -1,0 +1,142 @@
+
+<!DOCTYPE html>
+<html lang="en_us">
+<head>
+  <link href='//fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,700,400italic' rel='stylesheet' type='text/css'>
+
+    <link rel="stylesheet" type="text/css" href="http://garettmd.com/theme/stylesheet/style.min.css">
+
+  <link rel="stylesheet" type="text/css" href="http://garettmd.com/theme/pygments/monokai.min.css">
+  <link rel="stylesheet" type="text/css" href="http://garettmd.com/theme/font-awesome/css/font-awesome.min.css">
+
+    <link href="http://garettmd.com/static/custom.css" rel="stylesheet">
+
+    <link href="http://garettmd.com/feeds/all.atom.xml" type="application/atom+xml" rel="alternate" title="garettmd.com Atom">
+
+
+
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="HandheldFriendly" content="True" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="" />
+
+    <!-- Chrome, Firefox OS and Opera -->
+    <meta name="theme-color" content="#333">
+    <!-- Windows Phone -->
+    <meta name="msapplication-navbutton-color" content="#333">
+    <!-- iOS Safari -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<meta name="author" content="garettmd" />
+<meta name="description" content="CLI tool for managing Kanboard instance" />
+<meta name="keywords" content="">
+<meta property="og:site_name" content="garettmd.com"/>
+<meta property="og:title" content="CLI Tool for Managing Kanboard"/>
+<meta property="og:description" content="CLI tool for managing Kanboard instance"/>
+<meta property="og:locale" content="en_US"/>
+<meta property="og:url" content="http://garettmd.com/drafts/cli-tool-for-managing-kanboard.html"/>
+<meta property="og:type" content="article"/>
+<meta property="article:published_time" content="2017-05-18 17:07:13-04:00"/>
+<meta property="article:modified_time" content=""/>
+<meta property="article:author" content="http://garettmd.com/author/garettmd.html">
+<meta property="article:section" content="articles"/>
+<meta property="og:image" content="">
+
+  <title>garettmd.com &ndash; CLI Tool for Managing Kanboard</title>
+
+</head>
+<body>
+  <aside>
+    <div>
+      <a href="http://garettmd.com">
+        <img src="http://garettmd.com/theme/img/profile.png" alt="Human as a Service" title="Human as a Service">
+      </a>
+      <h1><a href="http://garettmd.com">Human as a Service</a></h1>
+
+<p>Garett's blog</p>
+
+      <ul class="social">
+        <li><a class="sc-linkedin" href="https://www.linkedin.com/in/garettmd/" target="_blank"><i class="fa fa-linkedin"></i></a></li>
+        <li><a class="sc-github" href="https://github.com/garettmd" target="_blank"><i class="fa fa-github"></i></a></li>
+        <li><a class="sc-get-pocket" href="https://getpocket.com/@garettmd" target="_blank"><i class="fa fa-get-pocket"></i></a></li>
+      </ul>
+    </div>
+
+
+  </aside>
+  <main>
+
+
+<article class="single">
+  <header>
+    <h1 id="cli-tool-for-managing-kanboard">CLI Tool for Managing Kanboard</h1>
+    <p>
+          Posted on Thu 18 May 2017 in <a href="http://garettmd.com/category/articles.html">articles</a>
+
+
+    </p>
+  </header>
+
+
+  <div>
+    <p>My team at work uses Kanboard to manage our OpenStack sites and their progression from procuring hardware, configuring hardware, and deploying OpenStack on them. This probably isn't the most common use for kanban tools, but it mostly works in our case. One of the coolest features of Kanboard is that it has a pretty thorough API for handling all sorts of actions. Frequently, we have need to make mass modifications of tasks and projects on Kanboard. This typically happens when we update a template project, from which many other projects (like 50+) were created. Someone could go about updating those projects one at a time, but this is 2017. Hitting the API is pretty easy, but to really speed things up, I needed to come up with some tool that iterate through many projects/tasks/subtasks/etc. and update them all at once. So, I set out to create a command-line tool to handle this.</p>
+<h3>The Setup</h3>
+<p>Fortunately, there is an <a href="https://github.com/kanboard/python-api-client">API client for Python</a> that prevents us from having to handle writing <code>curl</code> statements via subprocess calls. And installing this module is as simple as <code>pip install kanboard</code>. Next, I need to figure out how I'm going to handle the command-line aspect of the tool. I could stick with good 'ol <code>argparse</code> but how I envision this tool would make writing it with <code>argparse</code> a pain in the ass. I checked out some other frameworks like <code>cement</code> but eventually landed on <code>click</code>. If you're familiar with the Flask web framework, the way <code>click</code> works will probably </p>
+  </div>
+  <div class="tag-cloud">
+    <p>
+    </p>
+  </div>
+
+
+
+
+<div id="disqus_thread"></div>
+<script type="text/javascript">
+    var disqus_shortname = 'garettmd';
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+</script>
+<noscript>
+        Please enable JavaScript to view comments.
+
+</noscript>
+</article>
+
+    <footer>
+<p>&copy; garettmd 2017</p>
+<p>    Powered by <a href="http://getpelican.com" target="_blank">Pelican</a> - <a href="https://github.com/alexandrevicenzi/flex" target="_blank">Flex</a> theme by <a href="http://alexandrevicenzi.com" target="_blank">Alexandre Vicenzi</a>
+</p>    </footer>
+  </main>
+
+<!-- Google Analytics -->
+<script type="text/javascript">
+  (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+  (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+  m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+  })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+  ga('create', 'UA-82761943-2', 'auto');
+  ga('send', 'pageview');
+</script>
+<!-- End Google Analytics -->
+
+
+
+<script type="application/ld+json">
+{
+  "@context" : "http://schema.org",
+  "@type" : "Blog",
+  "name": " garettmd.com ",
+  "url" : "http://garettmd.com",
+  "image": "",
+  "description": ""
+}
+</script>
+</body>
+</html>
