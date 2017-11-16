@@ -30,11 +30,11 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
 <meta name="author" content="Garett" />
-<meta name="description" content="UPDATE 9/6/2016: I've added an extra step I had to take when I added a USB hub to my setup. If you want to skip my ramblings and go straight to the tutorial, click here I'm in the wrong business I have lots of options. In the technology …" />
+<meta name="description" content="Ditch the expensive hardware and create console server from a Raspberry Pi!" />
 <meta name="keywords" content="">
 <meta property="og:site_name" content="garettmd.com"/>
 <meta property="og:title" content="Create a Console Server with a Raspberry Pi"/>
-<meta property="og:description" content="UPDATE 9/6/2016: I've added an extra step I had to take when I added a USB hub to my setup. If you want to skip my ramblings and go straight to the tutorial, click here I'm in the wrong business I have lots of options. In the technology …"/>
+<meta property="og:description" content="Ditch the expensive hardware and create console server from a Raspberry Pi!"/>
 <meta property="og:locale" content="en_US"/>
 <meta property="og:url" content="http://garettmd.com/create-a-console-server-with-a-raspberry-pi.html"/>
 <meta property="og:type" content="article"/>
@@ -93,7 +93,7 @@
 <p>Why enterprise hardware sales, you ask? Please take a look at Exhibit A (the only exhibit I've put together), a <a href="https://www.blackbox.com/en-us/store/Detail.aspx/Dual-10-100-1000-Secure-Console-Server-16-Port/LES8164A">Black Box LES8164A 16-port Secure Console Server</a>.</p>
 <p><img alt="an expensive motherboard" src="https://az849230.vo.msecnd.net/images/moreviews1/LES8164A_PCS.jpg"></p>
 <p>It is a beautiful piece of hardware, for sure. Those clean black lines, the understated simplicity. You could almost call it minimalistic...in an IBM sort of way. And really, it doesn't look that complicated, either. Yes, there are 16 ports on the back, but other than that, there's only one button, for power. And if you were to look inside of it, you'd be even more amazed at how simple this box is.</p>
-<p><img alt="a boring landscape" src="https://s3.amazonaws.com/garettmd/inside_black_box.jpg"></p>
+<p><img alt="a boring landscape" src="https://storage.googleapis.com/garettmd.com/images/20160824_154327.jpg"></p>
 <p>I was just taking a picture through the vents on the side, but you can tell from the picture that there's not a lot going on, at least nothing more than most low-power hardware. And that's all there is to it. On the software side, it allows you to establish connections to serial devices that are connected to those 16 ports, via the server's own IP address and a virtual port. For example, let's say my Cisco 2911 router was connected and configured to use virtual port 5001. I would simply run <code>telnet 10.0.0.2 5001</code>, and the console server would forward all my traffic to the router, letting me connect to it as if I were directly connected over a serial connection. This is pretty cool. It also lets you do a few other configurations that are basically variations on that use case, but nothing crazy. Now, how much will this thing cost you?</p>
 <p>Only the small sum of <strong>$1,805.85</strong></p>
 <p>That's right, for more than the price of one of those 2911 routers, or even the price of a low-end rack server - <em>things that actually do something</em> - you can have yourself a pretty black box that forwards packets on to other devices connected to it. That sounds like a switch, you say. Well, you're right, it's not much more than that.</p>
